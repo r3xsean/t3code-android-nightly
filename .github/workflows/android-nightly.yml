@@ -150,13 +150,15 @@ jobs:
             --out "$signed" \
             "$aligned"
 
-          export CERTIFICATE_SHA256="$(
+          CERTIFICATE_SHA256="$(
             "$build_tools_dir/apksigner" verify --print-certs "$signed" |
               sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
               head -n 1 |
               tr '[:lower:]' '[:upper:]'
           )"
-          export APK_SHA256="$(shasum -a 256 "$signed" | awk '{print $1}')"
+          export CERTIFICATE_SHA256
+          APK_SHA256="$(shasum -a 256 "$signed" | awk '{print $1}')"
+          export APK_SHA256
           bash builder/scripts/verify-apk.sh \
             "$signed" \
             "$EXPECTED_PACKAGE" \

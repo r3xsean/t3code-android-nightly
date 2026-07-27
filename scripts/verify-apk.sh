@@ -39,6 +39,8 @@ fi
 apk_sha256="$(shasum -a 256 "$apk_path" | awk '{print $1}')"
 printf '%s  %s\n' "$apk_sha256" "$(basename "$apk_path")" > "$apk_path.sha256"
 
+# The JavaScript template literal is intentionally protected from shell expansion.
+# shellcheck disable=SC2016
 node -e '
   const fs = require("node:fs");
   const output = {

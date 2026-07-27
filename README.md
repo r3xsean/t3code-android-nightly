@@ -34,6 +34,8 @@ publishes only after package, signature, and checksum verification. A failed
 build leaves the previous release untouched.
 
 The signing key is not stored in this repository.
+The expected public certificate fingerprint and recovery procedure are recorded
+in [SIGNING.md](SIGNING.md).
 
 ## License
 
