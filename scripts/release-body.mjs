@@ -16,7 +16,8 @@ Built automatically from the official T3 Code nightly
 | Android version code | \`${item.version_code}\` |
 | Signing certificate SHA-256 | \`${certificateSha256}\` |
 
-Install and update through [Obtainium](https://github.com/ImranR98/Obtainium)
-using this repository URL. This companion is not endorsed by T3 Tools Inc.
+Install and update through
+[Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https%3A%2F%2Fgithub.com%2Fr3xsean%2Ft3code-android-nightly).
+This arm64 companion is not endorsed by T3 Tools Inc.
 `;
 }

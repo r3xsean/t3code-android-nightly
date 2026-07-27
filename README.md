@@ -16,15 +16,21 @@ The companion:
 
 ## Install and update
 
-1. Install [Obtainium](https://github.com/ImranR98/Obtainium).
-2. Add this repository's GitHub URL as an app source.
-3. Enable prerelease inclusion only if Obtainium requests it; companion releases
-   are published as normal GitHub releases.
-4. Install the APK and allow Obtainium to install unknown apps when Android
-   prompts.
+This build targets 64-bit ARM Android phones (`arm64-v8a`).
+
+1. Install [Obtainium](https://obtainium.imranr.dev/).
+2. On the Android phone, tap
+   **[add T3 Code Nightly to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https%3A%2F%2Fgithub.com%2Fr3xsean%2Ft3code-android-nightly)**.
+3. Confirm the detected GitHub source, then tap **Add** and **Install**.
+4. Allow Obtainium to install unknown apps when Android prompts.
 
 Obtainium checks GitHub for future releases and provides the Android update
-prompt. Pair this companion separately from the official app.
+prompt. Companion releases are normal GitHub releases, so prerelease inclusion
+is not required. Pair this companion separately from the official app.
+
+If the one-tap link does not open Obtainium, paste
+`https://github.com/r3xsean/t3code-android-nightly` into Obtainium's **Add App**
+screen.
 
 ## Security boundary
 
