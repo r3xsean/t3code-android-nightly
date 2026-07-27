@@ -95,6 +95,13 @@ jobs:
           '${{ matrix.release.version_code }}'
           '${{ matrix.release.version_name }}'
 
+      - name: Align React with the React Native renderer
+        run: |
+          node builder/scripts/align-react.mjs source
+          cd source
+          corepack pnpm@11.10.0 install --no-frozen-lockfile
+          node ../builder/scripts/align-react.mjs . --check
+
       - name: Type-check mobile client
         working-directory: source/apps/mobile
         run: vp run typecheck
