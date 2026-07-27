@@ -1,0 +1,208 @@
+name: Android nightly companion
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: "Optional exact upstream nightly tag"
+        required: false
+        type: string
+
+concurrency:
+  group: android-nightly-companion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect unpublished nightlies
+    runs-on: ubuntu-24.04
+    outputs:
+      has_releases: ${{ steps.detect.outputs.has_releases }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "24"
+
+      - name: Test builder
+        run: npm test
+
+      - id: detect
+        name: Resolve official upstream releases
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REQUESTED_UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+        run: node scripts/detect-nightlies.mjs
+
+  build:
+    name: Build ${{ matrix.release.upstream_tag }}
+    needs: detect
+    if: needs.detect.outputs.has_releases == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ${{ fromJSON(needs.detect.outputs.matrix).include }}
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: builder
+
+      - name: Check out exact upstream commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: pingdotgg/t3code
+          ref: ${{ matrix.release.upstream_sha }}
+          path: source
+          fetch-depth: 1
+
+      - name: Verify checked-out provenance
+        working-directory: source
+        env:
+          EXPECTED_SHA: ${{ matrix.release.upstream_sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          working-directory: source
+          node-version-file: source/package.json
+          cache: true
+          run-install: true
+
+      - name: Apply companion identity
+        run: >-
+          node builder/scripts/prepare-source.mjs
+          source
+          '${{ matrix.release.version_code }}'
+          '${{ matrix.release.version_name }}'
+
+      - name: Type-check mobile client
+        working-directory: source/apps/mobile
+        run: vp run typecheck
+
+      - name: Generate Android project
+        working-directory: source/apps/mobile
+        env:
+          APP_VARIANT: preview
+          CI: "1"
+          EXPO_NO_GIT_STATUS: "1"
+        run: ../../node_modules/.bin/expo prebuild --clean --platform android
+
+      - name: Compile release APK
+        working-directory: source/apps/mobile/android
+        env:
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Sign and verify APK
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          UPSTREAM_TAG: ${{ matrix.release.upstream_tag }}
+          UPSTREAM_RELEASE_ID: ${{ matrix.release.upstream_release_id }}
+          UPSTREAM_PUBLISHED_AT: ${{ matrix.release.upstream_published_at }}
+          UPSTREAM_SHA: ${{ matrix.release.upstream_sha }}
+          VERSION_CODE: ${{ matrix.release.version_code }}
+          VERSION_NAME: ${{ matrix.release.version_name }}
+          EXPECTED_PACKAGE: dev.r3xsean.t3code.nightly
+        run: |
+          test -n "$SIGNING_KEYSTORE_BASE64"
+          keystore="$RUNNER_TEMP/t3code-nightly.p12"
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+
+          build_tools_dir="$(
+            find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d |
+              sort -V |
+              tail -n 1
+          )"
+          unsigned="source/apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+          prefix="t3code-nightly-${UPSTREAM_TAG#v}"
+          aligned="$RUNNER_TEMP/$prefix-aligned.apk"
+          signed="$GITHUB_WORKSPACE/$prefix.apk"
+
+          "$build_tools_dir/zipalign" -f 4 "$unsigned" "$aligned"
+          "$build_tools_dir/apksigner" sign \
+            --ks "$keystore" \
+            --ks-type PKCS12 \
+            --ks-key-alias "$SIGNING_KEY_ALIAS" \
+            --ks-pass env:SIGNING_STORE_PASSWORD \
+            --key-pass env:SIGNING_KEY_PASSWORD \
+            --out "$signed" \
+            "$aligned"
+
+          export CERTIFICATE_SHA256="$(
+            "$build_tools_dir/apksigner" verify --print-certs "$signed" |
+              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
+              head -n 1 |
+              tr '[:lower:]' '[:upper:]'
+          )"
+          export APK_SHA256="$(shasum -a 256 "$signed" | awk '{print $1}')"
+          bash builder/scripts/verify-apk.sh \
+            "$signed" \
+            "$EXPECTED_PACKAGE" \
+            "$VERSION_CODE" \
+            "$VERSION_NAME" \
+            "$GITHUB_WORKSPACE/$prefix.json"
+
+      - name: Upload verified build
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: companion-${{ matrix.release.upstream_tag }}
+          path: |
+            t3code-nightly-${{ matrix.release.version_name }}.apk
+            t3code-nightly-${{ matrix.release.version_name }}.apk.sha256
+            t3code-nightly-${{ matrix.release.version_name }}.json
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    name: Publish verified companions
+    needs:
+      - detect
+      - build
+    if: needs.detect.outputs.has_releases == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "24"
+
+      - name: Download verified builds
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          pattern: companion-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish in upstream order
+        env:
+          ARTIFACTS_DIRECTORY: ${{ github.workspace }}/artifacts
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_MATRIX: ${{ needs.detect.outputs.matrix }}
+        run: node scripts/publish-releases.mjs
