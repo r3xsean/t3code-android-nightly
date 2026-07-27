@@ -54,7 +54,11 @@ test("derives deterministic Android versions and downstream tags", () => {
   );
   assert.equal(
     downstreamTag("v0.0.29-nightly.20260727.922"),
-    "android-v0.0.29-nightly.20260727.922",
+    "0.0.29-nightly.20260727.922",
+  );
+  assert.equal(
+    downstreamTag("v0.0.29-nightly.20260727.922"),
+    androidVersionName("v0.0.29-nightly.20260727.922"),
   );
 });
 
@@ -92,7 +96,7 @@ test("selects only the newest missing nightly above the publication floor", () =
     ],
     [
       {
-        tag_name: "android-v0.0.29-nightly.20260727.920",
+        tag_name: "0.0.29-nightly.20260727.920",
         body: "<!-- android-version-code: 1785168740 -->",
       },
     ],
@@ -113,7 +117,7 @@ test("ignores drafts when deriving the publication floor", () => {
     ],
     [
       {
-        tag_name: "android-v9.9.9-nightly.20990101.1",
+        tag_name: "9.9.9-nightly.20990101.1",
         body: "<!-- android-version-code: 2100000000 -->",
         draft: true,
       },
@@ -134,7 +138,7 @@ test("fails closed on a published companion without a version marker", () => {
         ],
         [
           {
-            tag_name: "android-v0.0.29-nightly.20260727.921",
+            tag_name: "0.0.29-nightly.20260727.921",
             body: "missing machine-readable marker",
             draft: false,
           },
@@ -158,7 +162,7 @@ test("same-second nightlies choose the higher sequence without wedging", () => {
     ],
     [
       {
-        tag_name: "android-v0.0.29-nightly.20260727.920",
+        tag_name: "0.0.29-nightly.20260727.920",
         body: "<!-- android-version-code: 1785168740 -->",
         draft: false,
       },

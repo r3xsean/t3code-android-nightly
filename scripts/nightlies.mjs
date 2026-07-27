@@ -1,8 +1,9 @@
 const NIGHTLY_TAG =
   /^v\d+\.\d+\.\d+-nightly\.\d{8}\.\d+$/;
+const DOWNSTREAM_NIGHTLY_TAG =
+  /^\d+\.\d+\.\d+-nightly\.\d{8}\.\d+$/;
 
 export const UPSTREAM_REPOSITORY = "pingdotgg/t3code";
-export const DOWNSTREAM_TAG_PREFIX = "android-";
 export const MAX_ANDROID_VERSION_CODE = 2_100_000_000;
 
 export function isQualifyingNightly(release) {
@@ -36,10 +37,7 @@ export function androidVersionName(tag) {
 }
 
 export function downstreamTag(tag) {
-  if (!NIGHTLY_TAG.test(tag)) {
-    throw new Error(`Invalid nightly tag: ${tag}`);
-  }
-  return `${DOWNSTREAM_TAG_PREFIX}${tag}`;
+  return androidVersionName(tag);
 }
 
 export function existingVersionCodes(releases) {
@@ -83,7 +81,7 @@ export function selectCandidates(upstreamReleases, downstreamReleases) {
     (release) =>
       release?.draft === false &&
       typeof release?.tag_name === "string" &&
-      release.tag_name.startsWith(`${DOWNSTREAM_TAG_PREFIX}v`),
+      DOWNSTREAM_NIGHTLY_TAG.test(release.tag_name),
   );
   const existingTags = new Set(
     publishedDownstream.map((release) => release.tag_name),

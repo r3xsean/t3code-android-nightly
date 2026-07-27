@@ -29,6 +29,8 @@ release tag to an immutable commit SHA and builds that SHA.
 - Display name: `T3 Code Nightly`
 - Version name: exact upstream tag without its leading `v`
 - Version code: upstream publication timestamp as Unix seconds
+- GitHub release tag: exactly the Android version name, so Obtainium's latest
+  version matches Android's installed version
 - Signing: one long-lived PKCS#12 identity stored as GitHub Actions secrets,
   with an encrypted external recovery copy
 

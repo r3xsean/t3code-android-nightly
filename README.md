@@ -26,7 +26,9 @@ This build targets 64-bit ARM Android phones (`arm64-v8a`).
 
 Obtainium checks GitHub for future releases and provides the Android update
 prompt. Companion releases are normal GitHub releases, so prerelease inclusion
-is not required. Pair this companion separately from the official app.
+is not required. Each release tag exactly matches the APK version reported by
+Android, preventing false update prompts. Pair this companion separately from
+the official app.
 
 If the one-tap link does not open Obtainium, paste
 `https://github.com/r3xsean/t3code-android-nightly` into Obtainium's **Add App**

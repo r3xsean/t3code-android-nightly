@@ -61,7 +61,7 @@ test("treats an existing public release as an idempotent success", async () => {
   assert.equal(result.status, "already-published");
   assert.deepEqual(calls, [
     [
-      "/repos/owner/repo/releases/tags/android-v0.0.29-nightly.20260727.922",
+      "/repos/owner/repo/releases/tags/0.0.29-nightly.20260727.922",
       "GET",
     ],
   ]);
