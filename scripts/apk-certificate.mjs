@@ -1,24 +1,37 @@
 import { readFile } from "node:fs/promises";
 
 export function certificateSha256(apksignerOutput) {
-  const matches = [
-    ...apksignerOutput.matchAll(
-      /^[ \t]*Signer #\d+ certificate SHA-256 digest:[ \t]*([0-9a-fA-F: \t]+)\r?$/gm,
-    ),
-  ];
-  if (matches.length !== 1) {
+  const signerCount = Number.parseInt(
+    apksignerOutput.match(/^Number of signers: (\d+)\r?$/m)?.[1] ?? "",
+    10,
+  );
+  if (signerCount !== 1) {
     throw new Error(
-      `Expected exactly one APK signer, found ${matches.length}`,
+      `Expected exactly one APK signer, found ${
+        Number.isInteger(signerCount) ? signerCount : 0
+      }`,
     );
   }
-  const fingerprint = matches[0][1]
-    .replaceAll(":", "")
-    .replaceAll(/[ \t]/g, "")
-    .toUpperCase();
-  if (!fingerprint || !/^[0-9A-F]{64}$/.test(fingerprint)) {
+  const matches = [
+    ...apksignerOutput.matchAll(
+      /^(?:[ \t]*Signer #\d+|[^\r\n]*Signer:)[ \t]+certificate SHA-256 digest:[ \t]*([0-9a-fA-F: \t]+)\r?$/gm,
+    ),
+  ];
+  const fingerprints = new Set(
+    matches.map((match) =>
+      match[1]
+        .replaceAll(":", "")
+        .replaceAll(/[ \t]/g, "")
+        .toUpperCase(),
+    ),
+  );
+  if (
+    fingerprints.size !== 1 ||
+    !/^[0-9A-F]{64}$/.test([...fingerprints][0] ?? "")
+  ) {
     throw new Error("Could not read signing certificate fingerprint");
   }
-  return fingerprint;
+  return [...fingerprints][0];
 }
 
 async function main() {
