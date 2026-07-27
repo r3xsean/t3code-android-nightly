@@ -61,7 +61,19 @@ export function selectCandidates(upstreamReleases, downstreamReleases) {
       ...release,
       version_code: androidVersionCode(release.published_at),
     }))
-    .sort((left, right) => left.version_code - right.version_code);
+    .sort((left, right) => {
+      const codeOrder = left.version_code - right.version_code;
+      if (codeOrder !== 0) {
+        return codeOrder;
+      }
+      const leftSequence = BigInt(left.tag_name.split(".").at(-1));
+      const rightSequence = BigInt(right.tag_name.split(".").at(-1));
+      return leftSequence < rightSequence
+        ? -1
+        : leftSequence > rightSequence
+          ? 1
+          : 0;
+    });
 
   if (qualifying.length === 0) {
     return [];
@@ -90,10 +102,6 @@ export function selectCandidates(upstreamReleases, downstreamReleases) {
       release.version_code > floor &&
       !existingTags.has(downstreamTag(release.tag_name)),
   );
-  const uniqueCodes = new Set(eligible.map((release) => release.version_code));
-  if (uniqueCodes.size !== eligible.length) {
-    throw new Error("Qualifying nightlies contain colliding Android version codes");
-  }
   return eligible.length === 0 ? [] : [eligible.at(-1)];
 }
 

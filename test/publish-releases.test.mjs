@@ -42,6 +42,7 @@ async function artifacts() {
       version_code: item.version_code,
       version_name: item.version_name,
       package_id: "dev.r3xsean.t3code.nightly",
+      abi: "arm64-v8a",
       certificate_sha256: EXPECTED_CERTIFICATE_SHA256,
       apk_sha256: apkSha256,
     }),

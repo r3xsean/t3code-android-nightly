@@ -6,6 +6,7 @@ expected_package="$2"
 expected_version_code="$3"
 expected_version_name="$4"
 metadata_path="$5"
+expected_abi="$6"
 
 build_tools_dir="${ANDROID_HOME:?}/build-tools/${ANDROID_BUILD_TOOLS_VERSION:?}"
 apksigner="$build_tools_dir/apksigner"
@@ -14,7 +15,12 @@ test -x "$apksigner"
 test -x "$aapt2"
 
 "$apksigner" verify --verbose --print-certs "$apk_path" > "$RUNNER_TEMP/apksigner.txt"
-badging="$("$aapt2" dump badging "$apk_path" | head -n 1)"
+all_badging="$("$aapt2" dump badging "$apk_path")"
+badging="${all_badging%%$'\n'*}"
+native_code="$(
+  printf '%s\n' "$all_badging" |
+    sed -n 's/^native-code: //p'
+)"
 
 case "$badging" in
   *"name='$expected_package'"*"versionCode='$expected_version_code'"*"versionName='$expected_version_name'"*) ;;
@@ -23,9 +29,14 @@ case "$badging" in
     exit 1
     ;;
 esac
+if [[ "$native_code" != "'$expected_abi'" ]]; then
+  echo "Unexpected APK native code: $native_code" >&2
+  exit 1
+fi
 
 certificate_sha256="$(
-  node builder/scripts/apk-certificate.mjs "$RUNNER_TEMP/apksigner.txt"
+  script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  node "$script_dir/apk-certificate.mjs" "$RUNNER_TEMP/apksigner.txt"
 )"
 expected_certificate_sha256="${EXPECTED_CERTIFICATE_SHA256:?}"
 if [[ "$certificate_sha256" != "$expected_certificate_sha256" ]]; then
@@ -37,6 +48,10 @@ apk_sha256="$(shasum -a 256 "$apk_path" | awk '{print $1}')"
 printf '%s  %s\n' "$apk_sha256" "$(basename "$apk_path")" > "$apk_path.sha256"
 export CERTIFICATE_SHA256="$certificate_sha256"
 export APK_SHA256="$apk_sha256"
+export EXPECTED_PACKAGE="$expected_package"
+export VERSION_CODE="$expected_version_code"
+export VERSION_NAME="$expected_version_name"
+export EXPECTED_ABI="$expected_abi"
 
 # The JavaScript template literal is intentionally protected from shell expansion.
 # shellcheck disable=SC2016
@@ -50,6 +65,7 @@ node -e '
     version_code: Number(process.env.VERSION_CODE),
     version_name: process.env.VERSION_NAME,
     package_id: process.env.EXPECTED_PACKAGE,
+    abi: process.env.EXPECTED_ABI,
     certificate_sha256: process.env.CERTIFICATE_SHA256,
     apk_sha256: process.env.APK_SHA256
   };

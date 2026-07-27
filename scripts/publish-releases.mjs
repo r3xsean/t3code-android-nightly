@@ -97,6 +97,7 @@ export async function publishOne(
     metadataValue.version_code !== item.version_code ||
     metadataValue.version_name !== item.version_name ||
     metadataValue.package_id !== "dev.r3xsean.t3code.nightly" ||
+    metadataValue.abi !== "arm64-v8a" ||
     metadataValue.certificate_sha256 !== EXPECTED_CERTIFICATE_SHA256 ||
     metadataValue.apk_sha256 !== apkSha256 ||
     checksumValue.trim() !== expectedChecksumLine
@@ -165,7 +166,13 @@ async function main() {
     (left, right) => left.version_code - right.version_code,
   );
   for (const item of ordered) {
-    await publishOne(api, repository, artifactsDirectory, item);
+    const result = await publishOne(
+      api,
+      repository,
+      artifactsDirectory,
+      item,
+    );
+    console.log(`${item.upstream_tag}: ${result.status}`);
   }
 }
 

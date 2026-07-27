@@ -137,6 +137,8 @@ jobs:
     if: needs.detect.outputs.has_releases == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      ANDROID_BUILD_TOOLS_VERSION: "37.0.0"
     strategy:
       fail-fast: false
       matrix:
@@ -160,6 +162,11 @@ jobs:
           name: unsigned-${{ matrix.release.upstream_tag }}
           path: unsigned
 
+      - name: Install pinned Android build tools
+        run: >-
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "build-tools;${ANDROID_BUILD_TOOLS_VERSION}"
+
       - name: Sign and verify APK
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
@@ -174,7 +181,6 @@ jobs:
           VERSION_NAME: ${{ matrix.release.version_name }}
           EXPECTED_PACKAGE: dev.r3xsean.t3code.nightly
           EXPECTED_CERTIFICATE_SHA256: 3EAAE08EE4FA2F8A2D2A85FE359840267F6E022B1963C19A60768D96EE40578B
-          ANDROID_BUILD_TOOLS_VERSION: "37.0.0"
         run: |
           test -n "$SIGNING_KEYSTORE_BASE64"
           keystore="$RUNNER_TEMP/t3code-nightly.p12"
@@ -204,7 +210,8 @@ jobs:
             "$EXPECTED_PACKAGE" \
             "$VERSION_CODE" \
             "$VERSION_NAME" \
-            "$GITHUB_WORKSPACE/$prefix.json"
+            "$GITHUB_WORKSPACE/$prefix.json" \
+            arm64-v8a
 
       - name: Upload verified build
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
@@ -226,6 +233,9 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    env:
+      ANDROID_BUILD_TOOLS_VERSION: "37.0.0"
+      EXPECTED_CERTIFICATE_SHA256: 3EAAE08EE4FA2F8A2D2A85FE359840267F6E022B1963C19A60768D96EE40578B
     steps:
       - name: Check out builder
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -237,12 +247,34 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Download verified builds
+      - name: Set up Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install pinned Android build tools
+        run: >-
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "build-tools;${ANDROID_BUILD_TOOLS_VERSION}"
+
+      - name: Download exact verified build
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
-          pattern: companion-*
+          name: companion-${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
           path: artifacts
-          merge-multiple: true
+
+      - name: Reverify published APK signature
+        run: |
+          mapfile -t apks < <(find artifacts -maxdepth 1 -type f -name '*.apk')
+          test "${#apks[@]}" -eq 1
+          output="$RUNNER_TEMP/publish-apksigner.txt"
+          "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/apksigner" \
+            verify --verbose --print-certs "${apks[0]}" > "$output"
+          actual="$(
+            node scripts/apk-certificate.mjs "$output"
+          )"
+          test "$actual" = "$EXPECTED_CERTIFICATE_SHA256"
 
       - name: Publish in upstream order
         env:

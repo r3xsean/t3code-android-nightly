@@ -144,28 +144,25 @@ test("fails closed on a published companion without a version marker", () => {
   );
 });
 
-test("rejects colliding version codes among pending nightlies", () => {
-  assert.throws(
-    () =>
-      selectCandidates(
-        [
-          release(
-            "v0.0.29-nightly.20260727.921",
-            "2026-07-27T18:54:45Z",
-          ),
-          release(
-            "v0.0.29-nightly.20260727.922",
-            "2026-07-27T18:54:45Z",
-          ),
-        ],
-        [
-          {
-            tag_name: "android-v0.0.29-nightly.20260727.920",
-            body: "<!-- android-version-code: 1785168740 -->",
-            draft: false,
-          },
-        ],
+test("same-second nightlies choose the higher sequence without wedging", () => {
+  const selected = selectCandidates(
+    [
+      release(
+        "v0.0.29-nightly.20260727.922",
+        "2026-07-27T18:54:45Z",
       ),
-    /colliding Android version codes/,
+      release(
+        "v0.0.29-nightly.20260727.921",
+        "2026-07-27T18:54:45Z",
+      ),
+    ],
+    [
+      {
+        tag_name: "android-v0.0.29-nightly.20260727.920",
+        body: "<!-- android-version-code: 1785168740 -->",
+        draft: false,
+      },
+    ],
   );
+  assert.equal(selected[0].tag_name, "v0.0.29-nightly.20260727.922");
 });

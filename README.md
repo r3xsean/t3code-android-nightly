@@ -41,6 +41,9 @@ runs on the signing-key runner. Publication happens only after package,
 signature, and checksum verification; a failed build leaves the previous
 release untouched.
 
+A monthly marker commit keeps GitHub from disabling this public repository's
+scheduled workflow after 60 days without repository activity.
+
 The signing key is not stored in this repository.
 The expected public certificate fingerprint is recorded in
 [SIGNING.md](SIGNING.md).
