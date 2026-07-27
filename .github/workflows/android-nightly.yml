@@ -62,20 +62,17 @@ jobs:
           path: builder
           persist-credentials: false
 
-      - name: Check out exact upstream commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          repository: pingdotgg/t3code
-          ref: ${{ matrix.release.upstream_sha }}
-          path: source
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Verify checked-out provenance
-        working-directory: source
+      - name: Check out exact upstream commit without credentials
         env:
           EXPECTED_SHA: ${{ matrix.release.upstream_sha }}
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+        run: |
+          mkdir source
+          git -C source init
+          git -C source remote add origin https://github.com/pingdotgg/t3code.git
+          git -C source fetch --no-tags --depth=1 origin "$EXPECTED_SHA"
+          git -C source checkout --detach FETCH_HEAD
+          test "$(git -C source rev-parse HEAD)" = "$EXPECTED_SHA"
+          git -C source remote remove origin
 
       - name: Set up Java
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
