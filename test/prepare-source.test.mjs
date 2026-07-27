@@ -38,3 +38,12 @@ test("fails closed when upstream config shape changes", () => {
     /upstream config changed/,
   );
 });
+
+test("accepts routine upstream version-literal changes", () => {
+  const changedVersion = fixture.replace('"0.1.0"', '"9.8.7"');
+  const prepared = prepareConfig(changedVersion, {
+    versionCode: 1785178485,
+    versionName: "0.0.29-nightly.20260727.922",
+  });
+  assert.match(prepared, /version: "0\.0\.29-nightly\.20260727\.922"/);
+});

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { githubApi } from "../scripts/github-api.mjs";
+import { GitHubApiError, githubApi } from "../scripts/github-api.mjs";
 
 test("uses API paths and absolute upload URLs without rewriting them", async (t) => {
   const seen = [];
@@ -21,4 +21,21 @@ test("uses API paths and absolute upload URLs without rewriting them", async (t)
     "https://api.github.com/repos/example/project/releases",
     "https://uploads.github.com/repos/example/project/releases/1/assets?name=x.apk",
   ]);
+});
+
+test("preserves HTTP status for safe idempotency decisions", async (t) => {
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async () => new Response("missing", { status: 404 }),
+  );
+
+  const api = githubApi("test-token");
+  await assert.rejects(
+    api("/repos/example/project/releases/tags/missing"),
+    (error) =>
+      error instanceof GitHubApiError &&
+      error.status === 404 &&
+      error.body === "missing",
+  );
 });

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       upstream_tag:
-        description: "Optional exact upstream nightly tag"
+        description: "Optional exact unpublished newer upstream nightly tag"
         required: false
         type: string
 
@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Check out builder
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
@@ -58,6 +60,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           path: builder
+          persist-credentials: false
 
       - name: Check out exact upstream commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -66,6 +69,7 @@ jobs:
           ref: ${{ matrix.release.upstream_sha }}
           path: source
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Verify checked-out provenance
         working-directory: source
@@ -112,6 +116,53 @@ jobs:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
+      - name: Stage unsigned APK
+        env:
+          VERSION_NAME: ${{ matrix.release.version_name }}
+        run: >-
+          cp
+          source/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          "unsigned-${VERSION_NAME}.apk"
+
+      - name: Upload unsigned build
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: unsigned-${{ matrix.release.upstream_tag }}
+          path: unsigned-${{ matrix.release.version_name }}.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  sign:
+    name: Sign ${{ matrix.release.upstream_tag }}
+    needs:
+      - detect
+      - build
+    if: needs.detect.outputs.has_releases == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ${{ fromJSON(needs.detect.outputs.matrix).include }}
+    steps:
+      - name: Check out trusted builder
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: builder
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Download unsigned build
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: unsigned-${{ matrix.release.upstream_tag }}
+          path: unsigned
+
       - name: Sign and verify APK
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
@@ -126,17 +177,17 @@ jobs:
           VERSION_NAME: ${{ matrix.release.version_name }}
           EXPECTED_PACKAGE: dev.r3xsean.t3code.nightly
           EXPECTED_CERTIFICATE_SHA256: 3EAAE08EE4FA2F8A2D2A85FE359840267F6E022B1963C19A60768D96EE40578B
+          ANDROID_BUILD_TOOLS_VERSION: "37.0.0"
         run: |
           test -n "$SIGNING_KEYSTORE_BASE64"
           keystore="$RUNNER_TEMP/t3code-nightly.p12"
           printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$keystore"
 
-          build_tools_dir="$(
-            find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d |
-              sort -V |
-              tail -n 1
-          )"
-          unsigned="source/apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+          build_tools_dir="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION"
+          test -x "$build_tools_dir/zipalign"
+          test -x "$build_tools_dir/apksigner"
+          unsigned="unsigned/unsigned-${VERSION_NAME}.apk"
+          test -f "$unsigned"
           prefix="t3code-nightly-${UPSTREAM_TAG#v}"
           aligned="$RUNNER_TEMP/$prefix-aligned.apk"
           signed="$GITHUB_WORKSPACE/$prefix.apk"
@@ -173,7 +224,7 @@ jobs:
     name: Publish verified companions
     needs:
       - detect
-      - build
+      - sign
     if: needs.detect.outputs.has_releases == 'true'
     runs-on: ubuntu-24.04
     permissions:
@@ -181,6 +232,8 @@ jobs:
     steps:
       - name: Check out builder
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38

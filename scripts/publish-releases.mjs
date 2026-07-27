@@ -1,9 +1,13 @@
 import { readFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 
-import { githubApi } from "./github-api.mjs";
+import { GitHubApiError, githubApi } from "./github-api.mjs";
 import { downstreamTag } from "./nightlies.mjs";
 import { releaseBody } from "./release-body.mjs";
+
+export const EXPECTED_CERTIFICATE_SHA256 =
+  "3EAAE08EE4FA2F8A2D2A85FE359840267F6E022B1963C19A60768D96EE40578B";
 
 async function upload(api, uploadUrl, assetPath, contentType) {
   const bytes = await readFile(assetPath);
@@ -21,20 +25,49 @@ async function upload(api, uploadUrl, assetPath, contentType) {
   );
 }
 
-async function removePartial(api, repository, releaseId, tag) {
-  if (releaseId) {
-    await api(`/repos/${repository}/releases/${releaseId}`, {
-      method: "DELETE",
-    }).catch(() => {});
+async function findPublishedRelease(api, repository, tag) {
+  try {
+    return await api(
+      `/repos/${repository}/releases/tags/${encodeURIComponent(tag)}`,
+    );
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
   }
-  await api(
-    `/repos/${repository}/git/refs/tags/${encodeURIComponent(tag)}`,
-    { method: "DELETE" },
-  ).catch(() => {});
 }
 
-async function publishOne(api, repository, artifactsDirectory, item) {
+async function removeOwnedDraft(api, repository, releaseId) {
+  if (!releaseId) {
+    return;
+  }
+  try {
+    const current = await api(`/repos/${repository}/releases/${releaseId}`);
+    if (current.draft === true) {
+      await api(`/repos/${repository}/releases/${releaseId}`, {
+        method: "DELETE",
+      });
+    }
+  } catch (error) {
+    // Cleanup is best-effort and must never delete a release whose current
+    // public/draft state could not be confirmed.
+    console.error(`Could not clean up draft release ${releaseId}:`, error);
+  }
+}
+
+export async function publishOne(
+  api,
+  repository,
+  artifactsDirectory,
+  item,
+) {
   const tag = downstreamTag(item.upstream_tag);
+  const existing = await findPublishedRelease(api, repository, tag);
+  if (existing) {
+    return { status: "already-published", release: existing };
+  }
+
   const expectedPrefix = `t3code-nightly-${item.upstream_tag.slice(1)}`;
   const files = await readdir(artifactsDirectory);
   const apk = files.find((file) => file === `${expectedPrefix}.apk`);
@@ -46,12 +79,27 @@ async function publishOne(api, repository, artifactsDirectory, item) {
     throw new Error(`Missing publication artifacts for ${item.upstream_tag}`);
   }
 
+  const apkBytes = await readFile(path.join(artifactsDirectory, apk));
+  const checksumValue = await readFile(
+    path.join(artifactsDirectory, checksum),
+    "utf8",
+  );
   const metadataValue = JSON.parse(
     await readFile(path.join(artifactsDirectory, metadata), "utf8"),
   );
+  const apkSha256 = createHash("sha256").update(apkBytes).digest("hex");
+  const expectedChecksumLine = `${apkSha256}  ${apk}`;
   if (
+    metadataValue.upstream_tag !== item.upstream_tag ||
+    metadataValue.upstream_release_id !== item.upstream_release_id ||
+    metadataValue.upstream_published_at !== item.upstream_published_at ||
     metadataValue.upstream_sha !== item.upstream_sha ||
-    metadataValue.version_code !== item.version_code
+    metadataValue.version_code !== item.version_code ||
+    metadataValue.version_name !== item.version_name ||
+    metadataValue.package_id !== "dev.r3xsean.t3code.nightly" ||
+    metadataValue.certificate_sha256 !== EXPECTED_CERTIFICATE_SHA256 ||
+    metadataValue.apk_sha256 !== apkSha256 ||
+    checksumValue.trim() !== expectedChecksumLine
   ) {
     throw new Error(`Artifact provenance mismatch for ${item.upstream_tag}`);
   }
@@ -97,8 +145,9 @@ async function publishOne(api, repository, artifactsDirectory, item) {
         make_latest: "true",
       }),
     });
+    return { status: "published", release };
   } catch (error) {
-    await removePartial(api, repository, release?.id, tag);
+    await removeOwnedDraft(api, repository, release?.id);
     throw error;
   }
 }

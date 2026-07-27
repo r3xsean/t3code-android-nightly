@@ -78,7 +78,7 @@ test("bootstraps only the newest upstream nightly", () => {
   );
 });
 
-test("selects every missing nightly newer than the publication floor", () => {
+test("selects only the newest missing nightly above the publication floor", () => {
   const selected = selectCandidates(
     [
       release(
@@ -99,9 +99,73 @@ test("selects every missing nightly newer than the publication floor", () => {
   );
   assert.deepEqual(
     selected.map((item) => item.tag_name),
+    ["v0.0.29-nightly.20260727.922"],
+  );
+});
+
+test("ignores drafts when deriving the publication floor", () => {
+  const selected = selectCandidates(
     [
-      "v0.0.29-nightly.20260727.921",
-      "v0.0.29-nightly.20260727.922",
+      release(
+        "v0.0.29-nightly.20260727.922",
+        "2026-07-27T18:54:45Z",
+      ),
     ],
+    [
+      {
+        tag_name: "android-v9.9.9-nightly.20990101.1",
+        body: "<!-- android-version-code: 2100000000 -->",
+        draft: true,
+      },
+    ],
+  );
+  assert.equal(selected[0].tag_name, "v0.0.29-nightly.20260727.922");
+});
+
+test("fails closed on a published companion without a version marker", () => {
+  assert.throws(
+    () =>
+      selectCandidates(
+        [
+          release(
+            "v0.0.29-nightly.20260727.922",
+            "2026-07-27T18:54:45Z",
+          ),
+        ],
+        [
+          {
+            tag_name: "android-v0.0.29-nightly.20260727.921",
+            body: "missing machine-readable marker",
+            draft: false,
+          },
+        ],
+      ),
+    /missing its version marker/,
+  );
+});
+
+test("rejects colliding version codes among pending nightlies", () => {
+  assert.throws(
+    () =>
+      selectCandidates(
+        [
+          release(
+            "v0.0.29-nightly.20260727.921",
+            "2026-07-27T18:54:45Z",
+          ),
+          release(
+            "v0.0.29-nightly.20260727.922",
+            "2026-07-27T18:54:45Z",
+          ),
+        ],
+        [
+          {
+            tag_name: "android-v0.0.29-nightly.20260727.920",
+            body: "<!-- android-version-code: 1785168740 -->",
+            draft: false,
+          },
+        ],
+      ),
+    /colliding Android version codes/,
   );
 });

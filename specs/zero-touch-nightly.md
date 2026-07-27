@@ -11,7 +11,8 @@ Android signing, or source builds.
 - The first APK installs alongside the official Play Store application.
 - The companion pairs directly with a reachable T3 Code environment over LAN or
   Tailscale without private T3 Connect configuration.
-- Every qualifying upstream nightly is automatically built and published.
+- The newest qualifying upstream nightly is automatically built and published;
+  superseded nightlies may be skipped after an outage or broken build.
 - Obtainium notices a newer release and offers an in-place Android update.
 - Pairing and application data survive upgrades.
 - Broken builds do not replace the latest published APK.
@@ -33,7 +34,7 @@ release tag to an immutable commit SHA and builds that SHA.
 
 ## Publication
 
-Each downstream release is created as a draft, receives a signed universal APK,
+Each downstream release is created as a draft, receives a signed arm64 APK,
 checksum, and metadata, then becomes public. Partial publication is cleaned up.
 Releases retain their upstream ID, tag, commit SHA, publication time, Android
 version, APK checksum, and signing-certificate fingerprint.
@@ -44,8 +45,6 @@ version, APK checksum, and signing-certificate fingerprint.
 - Do not publish if dependency installation, native generation, compilation,
   package inspection, signature verification, or tests fail.
 - Preserve old releases for recovery.
-- A manual emergency run may rebuild a selected known-good upstream commit with
-  a newer version code if a published nightly must be superseded.
 
 ## Success evidence
 

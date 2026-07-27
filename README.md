@@ -1,7 +1,7 @@
 # T3 Code Android Nightly Companion
 
 An unofficial, side-by-side Android build of
-[T3 Code](https://github.com/pingdotgg/t3code), produced from each official
+[T3 Code](https://github.com/pingdotgg/t3code), tracking the newest official
 nightly release so it stays compatible with the desktop nightly RPC protocol.
 
 The companion:
@@ -36,12 +36,14 @@ screen.
 
 The workflow accepts only nightly release records from `pingdotgg/t3code`,
 checks out their resolved commit SHA, builds on GitHub-hosted Linux runners, and
-publishes only after package, signature, and checksum verification. A failed
-build leaves the previous release untouched.
+passes the unsigned APK to a separate trusted signing job. Upstream code never
+runs on the signing-key runner. Publication happens only after package,
+signature, and checksum verification; a failed build leaves the previous
+release untouched.
 
 The signing key is not stored in this repository.
-The expected public certificate fingerprint and recovery procedure are recorded
-in [SIGNING.md](SIGNING.md).
+The expected public certificate fingerprint is recorded in
+[SIGNING.md](SIGNING.md).
 
 ## License
 

@@ -7,13 +7,11 @@ expected_version_code="$3"
 expected_version_name="$4"
 metadata_path="$5"
 
-build_tools_dir="$(
-  find "${ANDROID_HOME:?}/build-tools" -mindepth 1 -maxdepth 1 -type d |
-    sort -V |
-    tail -n 1
-)"
+build_tools_dir="${ANDROID_HOME:?}/build-tools/${ANDROID_BUILD_TOOLS_VERSION:?}"
 apksigner="$build_tools_dir/apksigner"
 aapt2="$build_tools_dir/aapt2"
+test -x "$apksigner"
+test -x "$aapt2"
 
 "$apksigner" verify --verbose --print-certs "$apk_path" > "$RUNNER_TEMP/apksigner.txt"
 badging="$("$aapt2" dump badging "$apk_path" | head -n 1)"

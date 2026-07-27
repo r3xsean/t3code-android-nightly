@@ -44,6 +44,7 @@ export function downstreamTag(tag) {
 
 export function existingVersionCodes(releases) {
   return releases
+    .filter((release) => release?.draft === false)
     .map((release) => {
       const match = release?.body?.match(
         /<!-- android-version-code: (\d+) -->/,
@@ -66,21 +67,34 @@ export function selectCandidates(upstreamReleases, downstreamReleases) {
     return [];
   }
 
-  const existingTags = new Set(
-    downstreamReleases.map((release) => release.tag_name),
+  const publishedDownstream = downstreamReleases.filter(
+    (release) =>
+      release?.draft === false &&
+      typeof release?.tag_name === "string" &&
+      release.tag_name.startsWith(`${DOWNSTREAM_TAG_PREFIX}v`),
   );
-  const codes = existingVersionCodes(downstreamReleases);
-
-  if (codes.length === 0) {
-    return [qualifying.at(-1)];
+  const existingTags = new Set(
+    publishedDownstream.map((release) => release.tag_name),
+  );
+  const codes = existingVersionCodes(publishedDownstream);
+  if (codes.length !== publishedDownstream.length) {
+    throw new Error("Published companion release is missing its version marker");
+  }
+  if (new Set(codes).size !== codes.length) {
+    throw new Error("Published companions contain colliding Android version codes");
   }
 
-  const floor = Math.max(...codes);
-  return qualifying.filter(
+  const floor = codes.length === 0 ? 0 : Math.max(...codes);
+  const eligible = qualifying.filter(
     (release) =>
       release.version_code > floor &&
       !existingTags.has(downstreamTag(release.tag_name)),
   );
+  const uniqueCodes = new Set(eligible.map((release) => release.version_code));
+  if (uniqueCodes.size !== eligible.length) {
+    throw new Error("Qualifying nightlies contain colliding Android version codes");
+  }
+  return eligible.length === 0 ? [] : [eligible.at(-1)];
 }
 
 export async function resolveCommitSha(api, tag) {

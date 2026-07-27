@@ -15,6 +15,16 @@ function replaceExactlyOnce(source, search, replacement, label) {
   return source.replace(search, replacement);
 }
 
+function replacePatternExactlyOnce(source, pattern, replacement, label) {
+  const matches = [...source.matchAll(pattern)];
+  if (matches.length !== 1) {
+    throw new Error(
+      `Expected exactly one ${label} insertion point; upstream config changed`,
+    );
+  }
+  return source.replace(pattern, replacement);
+}
+
 export function prepareConfig(source, { versionCode, versionName }) {
   if (!Number.isInteger(versionCode) || versionCode < 1) {
     throw new Error("versionCode must be a positive integer");
@@ -29,10 +39,10 @@ export function prepareConfig(source, { versionCode, versionName }) {
     `  name: "${DISPLAY_NAME}",\n`,
     "application name",
   );
-  prepared = replaceExactlyOnce(
+  prepared = replacePatternExactlyOnce(
     prepared,
-    '  version: "0.1.0",\n',
-    `  version: "${versionName}",\n`,
+    /^  version: "[^"\r\n]+",\r?$/gm,
+    `  version: "${versionName}",`,
     "application version",
   );
   prepared = replaceExactlyOnce(

@@ -1,7 +1,7 @@
 # T3 Code Android Nightly Companion
 
 This repository builds an unofficial, side-by-side Android companion for Sean
-from every official `pingdotgg/t3code` nightly. The core is
+from the newest official `pingdotgg/t3code` nightly. The core is
 **want-it-to-work**: a broken release is inconvenient, while a compromised
 signing path can silently replace the installed application.
 
@@ -17,8 +17,8 @@ signing path can silently replace the installed application.
 - Signing keys and passwords belong only in GitHub Actions secrets and the
   encrypted recovery backup. If a task would print, commit, replace, or broaden
   access to them, stop and report the risk.
-- Secret-bearing workflows must never run on `pull_request` or execute code
-  supplied by an untrusted repository.
+- Secret-bearing jobs must never run on `pull_request`, check out untrusted
+  source, or follow a build job on the same runner.
 - Upstream source adaptation is fail-closed: when the expected config shape
   changes, fail the build and update the adapter deliberately.
 

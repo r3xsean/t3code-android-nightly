@@ -28,10 +28,21 @@ test("normalizes indented, colon-delimited, CRLF output", () => {
 test("rejects missing and malformed certificate output", () => {
   assert.throws(
     () => certificateSha256("Verified\n"),
-    /Could not read signing certificate fingerprint/,
+    /Expected exactly one APK signer, found 0/,
   );
   assert.throws(
     () => certificateSha256("Signer #1 certificate SHA-256 digest: ABCD\n"),
     /Could not read signing certificate fingerprint/,
+  );
+});
+
+test("rejects APKs with multiple signers", () => {
+  assert.throws(
+    () =>
+      certificateSha256(
+        `Signer #1 certificate SHA-256 digest: ${fingerprint}\n` +
+          `Signer #2 certificate SHA-256 digest: ${fingerprint}\n`,
+      ),
+    /Expected exactly one APK signer, found 2/,
   );
 });

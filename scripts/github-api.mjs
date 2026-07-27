@@ -1,5 +1,14 @@
 const API_ORIGIN = "https://api.github.com";
 
+export class GitHubApiError extends Error {
+  constructor(method, url, status, body) {
+    super(`GitHub API ${method} ${url} failed: ${status} ${body}`);
+    this.name = "GitHubApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
 export function githubApi(token) {
   if (!token) {
     throw new Error("GITHUB_TOKEN is required");
@@ -20,8 +29,11 @@ export function githubApi(token) {
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(
-        `GitHub API ${options.method ?? "GET"} ${url} failed: ${response.status} ${body}`,
+      throw new GitHubApiError(
+        options.method ?? "GET",
+        url,
+        response.status,
+        body,
       );
     }
 

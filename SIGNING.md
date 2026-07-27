@@ -8,13 +8,8 @@ SHA-256
 ```
 
 The private PKCS#12 identity is not stored in this repository. GitHub Actions
-receives it through repository secrets. Sean's encrypted recovery copies are:
-
-- `~/Documents/T3CodeNightlySigning/t3code-android-nightly.p12`
-- iCloud Drive → `T3 Code Nightly Signing/t3code-android-nightly.p12`
-
-The password is stored in macOS Keychain under the service
-`T3 Code Android Nightly Signing`.
+receives it through repository secrets. Recovery locations and credential
+details are recorded privately, outside this public repository.
 
 Changing the certificate breaks Android's in-place update path. Verify release
 metadata and `apksigner --print-certs` output against this fingerprint.

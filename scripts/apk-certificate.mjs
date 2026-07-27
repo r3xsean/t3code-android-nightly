@@ -1,10 +1,17 @@
 import { readFile } from "node:fs/promises";
 
 export function certificateSha256(apksignerOutput) {
-  const match = apksignerOutput.match(
-    /^[ \t]*Signer #1 certificate SHA-256 digest:[ \t]*([0-9a-fA-F: \t]+)\r?$/m,
-  );
-  const fingerprint = match?.[1]
+  const matches = [
+    ...apksignerOutput.matchAll(
+      /^[ \t]*Signer #\d+ certificate SHA-256 digest:[ \t]*([0-9a-fA-F: \t]+)\r?$/gm,
+    ),
+  ];
+  if (matches.length !== 1) {
+    throw new Error(
+      `Expected exactly one APK signer, found ${matches.length}`,
+    );
+  }
+  const fingerprint = matches[0][1]
     .replaceAll(":", "")
     .replaceAll(/[ \t]/g, "")
     .toUpperCase();
