@@ -125,6 +125,7 @@ jobs:
           VERSION_CODE: ${{ matrix.release.version_code }}
           VERSION_NAME: ${{ matrix.release.version_name }}
           EXPECTED_PACKAGE: dev.r3xsean.t3code.nightly
+          EXPECTED_CERTIFICATE_SHA256: 3EAAE08EE4FA2F8A2D2A85FE359840267F6E022B1963C19A60768D96EE40578B
         run: |
           test -n "$SIGNING_KEYSTORE_BASE64"
           keystore="$RUNNER_TEMP/t3code-nightly.p12"
@@ -150,15 +151,6 @@ jobs:
             --out "$signed" \
             "$aligned"
 
-          CERTIFICATE_SHA256="$(
-            "$build_tools_dir/apksigner" verify --print-certs "$signed" |
-              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
-              head -n 1 |
-              tr '[:lower:]' '[:upper:]'
-          )"
-          export CERTIFICATE_SHA256
-          APK_SHA256="$(shasum -a 256 "$signed" | awk '{print $1}')"
-          export APK_SHA256
           bash builder/scripts/verify-apk.sh \
             "$signed" \
             "$EXPECTED_PACKAGE" \

@@ -27,17 +27,18 @@ case "$badging" in
 esac
 
 certificate_sha256="$(
-  sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/apksigner.txt" |
-    head -n 1 |
-    tr '[:lower:]' '[:upper:]'
+  node builder/scripts/apk-certificate.mjs "$RUNNER_TEMP/apksigner.txt"
 )"
-if [[ ! "$certificate_sha256" =~ ^[0-9A-F]{64}$ ]]; then
-  echo "Could not read signing certificate fingerprint" >&2
+expected_certificate_sha256="${EXPECTED_CERTIFICATE_SHA256:?}"
+if [[ "$certificate_sha256" != "$expected_certificate_sha256" ]]; then
+  echo "Unexpected signing certificate fingerprint: $certificate_sha256" >&2
   exit 1
 fi
 
 apk_sha256="$(shasum -a 256 "$apk_path" | awk '{print $1}')"
 printf '%s  %s\n' "$apk_sha256" "$(basename "$apk_path")" > "$apk_path.sha256"
+export CERTIFICATE_SHA256="$certificate_sha256"
+export APK_SHA256="$apk_sha256"
 
 # The JavaScript template literal is intentionally protected from shell expansion.
 # shellcheck disable=SC2016
