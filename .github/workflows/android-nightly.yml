@@ -104,7 +104,7 @@ jobs:
           APP_VARIANT: preview
           CI: "1"
           EXPO_NO_GIT_STATUS: "1"
-        run: ../../node_modules/.bin/expo prebuild --clean --platform android
+        run: vp exec expo prebuild --clean --platform android
 
       - name: Compile release APK
         working-directory: source/apps/mobile/android
