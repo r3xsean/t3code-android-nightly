@@ -41,7 +41,10 @@ checks out their resolved commit SHA, builds on GitHub-hosted Linux runners, and
 passes the unsigned APK to a separate trusted signing job. Upstream code never
 runs on the signing-key runner. Publication happens only after package,
 signature, and checksum verification; a failed build leaves the previous
-release untouched.
+release untouched. After a successful release, the workflow deletes its
+temporary unsigned and signed Actions artifacts. The APK, checksum, and
+provenance attached to GitHub Releases are separate and remain available to
+Obtainium.
 
 A monthly marker commit keeps GitHub from disabling this public repository's
 scheduled workflow after 60 days without repository activity.

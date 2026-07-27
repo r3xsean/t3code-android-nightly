@@ -239,6 +239,7 @@ jobs:
     if: needs.detect.outputs.has_releases == 'true'
     runs-on: ubuntu-24.04
     permissions:
+      actions: write
       contents: write
     env:
       ANDROID_BUILD_TOOLS_VERSION: "37.0.0"
@@ -289,3 +290,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           RELEASE_MATRIX: ${{ needs.detect.outputs.matrix }}
         run: node scripts/publish-releases.mjs
+
+      - name: Delete temporary Actions artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/cleanup-run-artifacts.mjs
