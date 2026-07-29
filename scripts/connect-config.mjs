@@ -84,7 +84,7 @@ export function verifyBundle(
   for (const [name, value] of Object.entries(expected)) {
     if (!bytes.includes(Buffer.from(value))) {
       throw new Error(
-        `Compiled Android bundle does not contain the configured ${name}`,
+        `Decoded Hermes bundle does not contain the configured ${name}`,
       );
     }
   }

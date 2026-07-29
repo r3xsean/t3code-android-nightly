@@ -143,9 +143,14 @@ jobs:
         run: |
           apk="source/apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
           bundle="$RUNNER_TEMP/index.android.bundle"
+          dump="$RUNNER_TEMP/index.android.bundle.dump"
+          hermesc="source/apps/mobile/node_modules/react-native/sdks/hermesc/linux64-bin/hermesc"
           unzip -p "$apk" assets/index.android.bundle > "$bundle"
           test -s "$bundle"
-          node builder/scripts/connect-config.mjs --verify-bundle "$bundle"
+          test -x "$hermesc"
+          "$hermesc" -dump-bytecode "$bundle" > "$dump"
+          test -s "$dump"
+          node builder/scripts/connect-config.mjs --verify-bundle "$dump"
 
       - name: Stage unsigned APK
         env:

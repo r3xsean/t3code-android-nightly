@@ -79,7 +79,7 @@ test("fails closed when an Expo public identifier is absent or changed", () => {
   assert.throws(() => verifyExpoConfig({}, publicConfig), /unexpected/);
 });
 
-test("proves all public identifiers reached the compiled Android bundle", () => {
+test("proves all public identifiers reached the decoded Hermes bundle", () => {
   const bundle = Buffer.from(Object.values(publicConfig).join("\0"));
   assert.doesNotThrow(() => verifyBundle(bundle, publicConfig));
   assert.throws(
