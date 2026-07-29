@@ -8,7 +8,7 @@ The companion:
 
 - installs as `dev.r3xsean.t3code.nightly`, alongside the Play Store app;
 - works with direct LAN or Tailscale environment pairing;
-- does not include T3 Connect credentials;
+- supports T3 Connect using validated public production identifiers;
 - is built from the exact commit recorded by an official upstream nightly;
 - is signed consistently so Android can upgrade it in place;
 - is published with its source commit, certificate fingerprint, metadata, and
@@ -52,6 +52,12 @@ scheduled workflow after 60 days without repository activity.
 The signing key is not stored in this repository.
 The expected public certificate fingerprint is recorded in
 [SIGNING.md](SIGNING.md).
+
+T3 Connect's Clerk publishable key, JWT template name, and relay URL are public
+client identifiers, not signing or account secrets. They are stored as
+repository-level Actions variables, restricted to T3's production trust
+targets, and checked in the compiled bundle. See T3's
+[Connect configuration documentation](https://github.com/pingdotgg/t3code/blob/main/docs/cloud/t3-connect-clerk.md).
 
 ## License
 
