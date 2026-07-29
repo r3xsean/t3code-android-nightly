@@ -10,7 +10,10 @@ Android signing, or source builds.
 
 - The first APK installs alongside the official Play Store application.
 - The companion pairs directly with a reachable T3 Code environment over LAN or
-  Tailscale without private T3 Connect configuration.
+  Tailscale.
+- The companion exposes T3 Connect account sign-in and environment discovery
+  using validated public production identifiers, without private T3
+  credentials.
 - The newest qualifying upstream nightly is automatically built and published;
   superseded nightlies may be skipped after an outage or broken build.
 - Obtainium notices a newer release and offers an in-place Android update.
@@ -57,3 +60,6 @@ version, APK checksum, and signing-certificate fingerprint.
 5. A public GitHub Release exposes the APK, checksum, and provenance metadata.
 6. Android installs the first APK and upgrades to a second without data loss.
 7. Obtainium discovers and offers that second version.
+8. The resolved Expo configuration and compiled Android bundle both contain the
+   configured T3 Connect public identifiers, restricted to T3's production
+   Clerk host, JWT template, and relay.

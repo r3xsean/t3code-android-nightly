@@ -102,9 +102,28 @@ jobs:
           corepack pnpm@11.10.0 install --no-frozen-lockfile
           node ../builder/scripts/align-react.mjs . --check
 
+      - name: Configure T3 Connect public identifiers
+        env:
+          T3CODE_CLERK_PUBLISHABLE_KEY: ${{ vars.T3CODE_CLERK_PUBLISHABLE_KEY }}
+          T3CODE_CLERK_JWT_TEMPLATE: ${{ vars.T3CODE_CLERK_JWT_TEMPLATE }}
+          T3CODE_RELAY_URL: ${{ vars.T3CODE_RELAY_URL }}
+        run: >-
+          node builder/scripts/connect-config.mjs
+          --emit-github-env
+          "$GITHUB_ENV"
+
       - name: Type-check mobile client
         working-directory: source/apps/mobile
         run: vp run typecheck
+
+      - name: Verify resolved T3 Connect configuration
+        working-directory: source/apps/mobile
+        run: |
+          config="$RUNNER_TEMP/t3code-expo-public-config.json"
+          vp exec expo config --type public --json > "$config"
+          node "$GITHUB_WORKSPACE/builder/scripts/connect-config.mjs" \
+            --verify-expo \
+            "$config"
 
       - name: Generate Android project
         working-directory: source/apps/mobile
@@ -119,6 +138,14 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
         run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify compiled T3 Connect configuration
+        run: |
+          apk="source/apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+          bundle="$RUNNER_TEMP/index.android.bundle"
+          unzip -p "$apk" assets/index.android.bundle > "$bundle"
+          test -s "$bundle"
+          node builder/scripts/connect-config.mjs --verify-bundle "$bundle"
 
       - name: Stage unsigned APK
         env:
