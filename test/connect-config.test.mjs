@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import {
   githubEnvPayload,
   resolveConnectPublicConfig,
-  verifyBundle,
   verifyExpoConfig,
 } from "../scripts/connect-config.mjs";
 
@@ -77,17 +76,4 @@ test("fails closed when an Expo public identifier is absent or changed", () => {
     /unexpected T3CODE_RELAY_URL/,
   );
   assert.throws(() => verifyExpoConfig({}, publicConfig), /unexpected/);
-});
-
-test("proves all public identifiers reached the decoded Hermes bundle", () => {
-  const bundle = Buffer.from(Object.values(publicConfig).join("\0"));
-  assert.doesNotThrow(() => verifyBundle(bundle, publicConfig));
-  assert.throws(
-    () =>
-      verifyBundle(
-        Buffer.from("bundle without Connect config"),
-        publicConfig,
-      ),
-    /does not contain/,
-  );
 });

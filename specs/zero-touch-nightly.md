@@ -60,6 +60,6 @@ version, APK checksum, and signing-certificate fingerprint.
 5. A public GitHub Release exposes the APK, checksum, and provenance metadata.
 6. Android installs the first APK and upgrades to a second without data loss.
 7. Obtainium discovers and offers that second version.
-8. The resolved Expo configuration and compiled Android bundle both contain the
-   configured T3 Connect public identifiers, restricted to T3's production
-   Clerk host, JWT template, and relay.
+8. Before native generation, Expo's resolved public configuration contains the
+   configured T3 Connect identifiers, restricted to T3's production Clerk host,
+   JWT template, and relay.

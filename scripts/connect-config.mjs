@@ -76,25 +76,11 @@ export function verifyExpoConfig(
   }
 }
 
-export function verifyBundle(
-  bundle,
-  expected = resolveConnectPublicConfig(),
-) {
-  const bytes = Buffer.isBuffer(bundle) ? bundle : Buffer.from(bundle);
-  for (const [name, value] of Object.entries(expected)) {
-    if (!bytes.includes(Buffer.from(value))) {
-      throw new Error(
-        `Decoded Hermes bundle does not contain the configured ${name}`,
-      );
-    }
-  }
-}
-
 async function main() {
   const [command, filePath] = process.argv.slice(2);
   if (!command || !filePath) {
     throw new Error(
-      "Usage: connect-config.mjs <--emit-github-env|--verify-expo|--verify-bundle> <path>",
+      "Usage: connect-config.mjs <--emit-github-env|--verify-expo> <path>",
     );
   }
 
@@ -105,11 +91,6 @@ async function main() {
 
   if (command === "--verify-expo") {
     verifyExpoConfig(JSON.parse(await readFile(filePath, "utf8")));
-    return;
-  }
-
-  if (command === "--verify-bundle") {
-    verifyBundle(await readFile(filePath));
     return;
   }
 

@@ -56,7 +56,8 @@ The expected public certificate fingerprint is recorded in
 T3 Connect's Clerk publishable key, JWT template name, and relay URL are public
 client identifiers, not signing or account secrets. They are stored as
 repository-level Actions variables, restricted to T3's production trust
-targets, and checked in the compiled bundle. See T3's
+targets, and checked in Expo's resolved public configuration before native
+generation and compilation. See T3's
 [Connect configuration documentation](https://github.com/pingdotgg/t3code/blob/main/docs/cloud/t3-connect-clerk.md).
 
 ## License
