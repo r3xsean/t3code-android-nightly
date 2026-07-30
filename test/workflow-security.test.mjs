@@ -34,6 +34,8 @@ test("trusted OTA publisher checks out only the builder and executes a locked CL
   assert.doesNotMatch(publish, /npm install --global/);
   assert.doesNotMatch(publish, /contents:\s*write/);
   assert.doesNotMatch(publish, /GITHUB_TOKEN/);
+  assert.match(publish, /DISABLE_EAS_ANALYTICS:\s*"1"/);
+  assert.match(publish, /EAS_CLI_SENTRY_DSN:\s*""/);
 });
 
 test("OTA state recording uses a fresh job without the Expo token or EAS tree", async () => {

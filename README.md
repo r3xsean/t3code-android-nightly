@@ -60,7 +60,8 @@ Expo OTA updates are a second delivery trust root: they are authorized by the
 dedicated Expo account token and delivered over TLS, rather than authenticated
 by the APK signing certificate. The credential-bearing publisher installs the
 exact EAS CLI dependency tree recorded in `package-lock.json` and never executes
-upstream source.
+upstream source. EAS analytics and crash-reporting endpoints are explicitly
+disabled in the token-bearing publication step.
 
 The local macOS LaunchAgent polls every five minutes while the Mac is online and
 dispatches the workflow for a newer official nightly. It lives outside the T3

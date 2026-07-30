@@ -18,7 +18,18 @@ import {
 const execFileAsync = promisify(execFile);
 const NIGHTLY = NIGHTLY_PATTERN;
 const DEFAULT_REPOSITORY = "r3xsean/t3code-android-nightly";
+const ALLOWED_GH_PATHS = new Set([
+  "/opt/homebrew/bin/gh",
+  "/usr/local/bin/gh",
+]);
 export const MAX_RETRY_ATTEMPTS = 3;
+
+export function validateGhPath(ghPath) {
+  if (!ALLOWED_GH_PATHS.has(ghPath)) {
+    throw new Error("GH_PATH must be a trusted Homebrew gh installation");
+  }
+  return ghPath;
+}
 
 export function retryDelayMilliseconds(attempt) {
   if (!Number.isInteger(attempt) || attempt < 1) {
@@ -106,8 +117,10 @@ export async function writeState(statePath, state) {
 }
 
 async function main() {
-  const repository = process.env.COMPANION_REPOSITORY ?? DEFAULT_REPOSITORY;
-  const ghPath = process.env.GH_PATH ?? "/opt/homebrew/bin/gh";
+  const repository = DEFAULT_REPOSITORY;
+  const ghPath = validateGhPath(
+    process.env.GH_PATH ?? "/opt/homebrew/bin/gh",
+  );
   const stateDirectory =
     process.env.DISPATCHER_STATE_DIRECTORY ??
     path.join(
@@ -166,7 +179,6 @@ async function main() {
     if (decision.action === "current") {
       await rm(statePath, { force: true });
     }
-    console.log(`${decision.action}: ${latest}`);
     return;
   }
 

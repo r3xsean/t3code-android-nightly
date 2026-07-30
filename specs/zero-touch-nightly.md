@@ -76,7 +76,8 @@ checks out or executes upstream source. End-to-end update code signing is not
 available on the selected Expo plan; updates rely on Expo account authorization
 and TLS, while APK authenticity remains protected by Android signing. The
 credential-bearing publisher installs the exact EAS CLI dependency graph from
-the builder's lockfile before the token is exposed. On every cold start, Expo
+the builder's lockfile before the token is exposed and disables EAS analytics
+and crash reporting. On every cold start, Expo
 Updates contacts the dedicated Expo endpoint and discloses the companion
 project, channel, runtime, and installation identifiers.
 

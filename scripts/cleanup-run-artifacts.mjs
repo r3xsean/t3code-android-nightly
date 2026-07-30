@@ -1,6 +1,10 @@
 import { GitHubApiError, githubApi } from "./github-api.mjs";
 
-const TEMPORARY_ARTIFACT_PREFIXES = ["unsigned-v", "companion-v"];
+const TEMPORARY_ARTIFACT_PREFIXES = [
+  "unsigned-v",
+  "companion-v",
+  "ota-v",
+];
 
 export function isTemporaryBuildArtifact(name) {
   return (

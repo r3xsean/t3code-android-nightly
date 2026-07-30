@@ -15,6 +15,7 @@ import {
   MAX_RETRY_ATTEMPTS,
   readState,
   retryDelayMilliseconds,
+  validateGhPath,
   writeState,
 } from "../scripts/dispatch-nightly.mjs";
 
@@ -101,6 +102,14 @@ test("fails closed on malformed tags", () => {
         now: 1,
       }),
     /nightly tag/,
+  );
+});
+
+test("pins dispatches to the companion repository and a trusted gh binary", () => {
+  assert.equal(validateGhPath("/opt/homebrew/bin/gh"), "/opt/homebrew/bin/gh");
+  assert.throws(
+    () => validateGhPath("/tmp/gh"),
+    /trusted Homebrew/,
   );
 });
 

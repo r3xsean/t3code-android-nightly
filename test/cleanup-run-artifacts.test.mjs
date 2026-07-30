@@ -9,6 +9,7 @@ import {
 test("recognizes only the builder's temporary artifact names", () => {
   assert.equal(isTemporaryBuildArtifact("unsigned-v0.0.29-nightly.925"), true);
   assert.equal(isTemporaryBuildArtifact("companion-v0.0.29-nightly.925"), true);
+  assert.equal(isTemporaryBuildArtifact("ota-v0.0.29-nightly.925"), true);
   assert.equal(isTemporaryBuildArtifact("release-apk"), false);
   assert.equal(isTemporaryBuildArtifact(undefined), false);
 });
@@ -20,10 +21,11 @@ test("deletes only temporary artifacts from the current run", async () => {
     requests.push([path, options.method ?? "GET"]);
     if ((options.method ?? "GET") === "GET") {
       return {
-        total_count: 3,
+        total_count: 4,
         artifacts: [
           { id: 101, name: "unsigned-v0.0.29-nightly.925" },
           { id: 102, name: "companion-v0.0.29-nightly.925" },
+          { id: 104, name: "ota-v0.0.29-nightly.925" },
           { id: 103, name: "unrelated-diagnostic" },
         ],
       };
@@ -41,6 +43,7 @@ test("deletes only temporary artifacts from the current run", async () => {
   assert.deepEqual(deleted, [
     "unsigned-v0.0.29-nightly.925",
     "companion-v0.0.29-nightly.925",
+    "ota-v0.0.29-nightly.925",
   ]);
   assert.deepEqual(requests, [
     [
@@ -55,8 +58,12 @@ test("deletes only temporary artifacts from the current run", async () => {
       "/repos/r3xsean/t3code-android-nightly/actions/artifacts/102",
       "DELETE",
     ],
+    [
+      "/repos/r3xsean/t3code-android-nightly/actions/artifacts/104",
+      "DELETE",
+    ],
   ]);
-  assert.equal(messages.length, 2);
+  assert.equal(messages.length, 3);
 });
 
 test("fails closed if the current run artifact list is incomplete", async () => {
