@@ -231,8 +231,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
-      actions: write
-      contents: write
+      actions: read
+      contents: read
     steps:
       - name: Check out trusted builder only
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -285,6 +285,28 @@ jobs:
           node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' \
             "$RUNNER_TEMP/eas-update.json"
 
+  record-ota:
+    name: Record successful OTA delivery
+    needs:
+      - detect
+      - build
+      - publish-ota
+    if: needs.build.outputs.delivery == 'ota' && needs.publish-ota.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: write
+    steps:
+      - name: Check out a clean trusted builder
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "24"
+
       - name: Record successfully processed nightly
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -294,7 +316,7 @@ jobs:
       - name: Delete temporary Actions artifacts
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node builder/scripts/cleanup-run-artifacts.mjs
+        run: node scripts/cleanup-run-artifacts.mjs
 
   sign:
     name: Sign native fallback APK
