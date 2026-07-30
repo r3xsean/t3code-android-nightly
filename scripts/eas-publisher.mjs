@@ -21,6 +21,17 @@ export function publisherConfig({
   };
 }
 
+export function publisherPackage({ versionName }) {
+  return {
+    name: "t3-code-android-nightly-publisher",
+    version: versionName,
+    private: true,
+    dependencies: {
+      "expo-updates": "56.0.19",
+    },
+  };
+}
+
 async function main() {
   const [directory] = process.argv.slice(2);
   if (!directory) {
@@ -37,6 +48,10 @@ async function main() {
   await writeFile(
     path.join(directory, "app.json"),
     `${JSON.stringify(config, null, 2)}\n`,
+  );
+  await writeFile(
+    path.join(directory, "package.json"),
+    `${JSON.stringify(publisherPackage({ versionName: process.env.VERSION_NAME }), null, 2)}\n`,
   );
 }
 

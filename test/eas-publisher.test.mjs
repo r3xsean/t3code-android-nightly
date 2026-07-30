@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { publisherConfig } from "../scripts/eas-publisher.mjs";
+import {
+  publisherConfig,
+  publisherPackage,
+} from "../scripts/eas-publisher.mjs";
 
 test("builds a static trusted config matching the companion runtime", () => {
   const config = publisherConfig({
@@ -21,6 +24,20 @@ test("builds a static trusted config matching the companion runtime", () => {
     "nightly",
   );
   assert.equal(config.expo.android.package, "dev.r3xsean.t3code.nightly");
+});
+
+test("publisherPackage creates the minimal trusted EAS project manifest", () => {
+  assert.deepEqual(
+    publisherPackage({ versionName: "0.0.32-nightly.20260730.958" }),
+    {
+      name: "t3-code-android-nightly-publisher",
+      version: "0.0.32-nightly.20260730.958",
+      private: true,
+      dependencies: {
+        "expo-updates": "56.0.19",
+      },
+    },
+  );
 });
 
 test("rejects malformed trusted publication inputs", () => {

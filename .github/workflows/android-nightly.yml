@@ -267,6 +267,7 @@ jobs:
         env:
           DISABLE_EAS_ANALYTICS: "1"
           EAS_CLI_SENTRY_DSN: ""
+          EAS_NO_VCS: "1"
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
           UPSTREAM_TAG: ${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
