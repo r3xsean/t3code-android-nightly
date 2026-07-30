@@ -7,6 +7,7 @@ export function verifyExpoConfig(config, expected) {
   const checks = [
     config?.name === contract.name,
     config?.slug === contract.slug,
+    config?.scheme === contract.scheme,
     config?.owner === contract.owner,
     config?.version === contract.version,
     config?.runtimeVersion === contract.runtimeVersion,

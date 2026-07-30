@@ -18,6 +18,7 @@ test("builds a static trusted config matching the companion runtime", () => {
     projectId: "f6933e31-cda6-4835-8f8d-93f4970ff60f",
   });
   assert.equal(config.expo.owner, "r3xsean");
+  assert.equal(config.expo.scheme, "t3code-preview");
   assert.equal(config.expo.runtimeVersion, "5".repeat(40));
   assert.equal(
     config.expo.updates.requestHeaders["expo-channel-name"],

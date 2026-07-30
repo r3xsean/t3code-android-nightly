@@ -14,6 +14,7 @@ const expected = {
 const config = {
   name: "T3 Code Nightly",
   slug: "t3-code-android-nightly",
+  scheme: "t3code-preview",
   owner: "r3xsean",
   version: expected.versionName,
   runtimeVersion: expected.runtimeVersion,
@@ -45,6 +46,10 @@ test("fails closed on a mismatched project, channel, or runtime", () => {
         },
         expected,
       ),
+    /configuration mismatch/,
+  );
+  assert.throws(
+    () => verifyExpoConfig({ ...config, scheme: "wrong" }, expected),
     /configuration mismatch/,
   );
 });

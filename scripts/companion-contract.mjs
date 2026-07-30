@@ -1,6 +1,7 @@
 export const APPLICATION_ID = "dev.r3xsean.t3code.nightly";
 export const DISPLAY_NAME = "T3 Code Nightly";
 export const EXPO_SLUG = "t3-code-android-nightly";
+export const URL_SCHEME = "t3code-preview";
 export const FINGERPRINT_VERSION_CODE = 1;
 export const FINGERPRINT_VERSION_NAME = "0.0.0-nightly.19700101.1";
 
@@ -65,6 +66,7 @@ export function companionExpoConfig({
   return {
     name: DISPLAY_NAME,
     slug: EXPO_SLUG,
+    scheme: URL_SCHEME,
     owner: expoOwner,
     version: versionName,
     runtimeVersion,

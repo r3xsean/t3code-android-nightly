@@ -180,6 +180,11 @@ Blocked by: T1, T2, T3.
   behavioral seams tested without invoking GitHub or `launchctl`.
 - Actual Android launch/reload behavior is experiential and requires a
   user-visible hand pass after automated configuration and publication checks.
+- The trusted Expo publisher must preserve the companion's
+  `t3code-preview` URL scheme. Without it, the update downloads but fails while
+  evaluating T3's startup linking configuration, then Expo falls back to the
+  embedded APK while subsequent checks misleadingly report the cached update
+  as current.
 - Blast radius is high because the workflow publishes external updates and
   signed binaries. Live tracers use the dedicated companion project and channel,
   immutable upstream commits, and reversible branch-scoped workflow runs before
