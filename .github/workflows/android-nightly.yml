@@ -293,6 +293,7 @@ jobs:
       - publish-ota
     if: needs.build.outputs.delivery == 'ota' && needs.publish-ota.result == 'success'
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       actions: write
       contents: write
@@ -311,7 +312,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           UPSTREAM_TAG: ${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
-        run: node builder/scripts/record-processed.mjs
+        run: node scripts/record-processed.mjs
 
       - name: Delete temporary Actions artifacts
         env:
@@ -420,6 +421,7 @@ jobs:
       - sign
     if: needs.build.outputs.delivery == 'apk'
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       actions: write
       contents: write

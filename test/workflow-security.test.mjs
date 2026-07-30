@@ -41,7 +41,7 @@ test("OTA state recording uses a fresh job without the Expo token or EAS tree", 
   const record = job(workflow, "record-ota", "sign");
   assert.match(record, /Check out a clean trusted builder/);
   assert.match(record, /contents:\s*write/);
-  assert.match(record, /record-processed\.mjs/);
+  assert.match(record, /\bnode scripts\/record-processed\.mjs/);
   assert.doesNotMatch(record, /EXPO_TOKEN|node_modules\/\.bin\/eas/);
 });
 
