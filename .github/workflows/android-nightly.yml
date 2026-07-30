@@ -259,6 +259,9 @@ jobs:
           EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
           EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
           NATIVE_FINGERPRINT: ${{ needs.build.outputs.native_fingerprint }}
+          T3CODE_CLERK_JWT_TEMPLATE: ${{ vars.T3CODE_CLERK_JWT_TEMPLATE }}
+          T3CODE_CLERK_PUBLISHABLE_KEY: ${{ vars.T3CODE_CLERK_PUBLISHABLE_KEY }}
+          T3CODE_RELAY_URL: ${{ vars.T3CODE_RELAY_URL }}
           VERSION_NAME: ${{ fromJSON(needs.detect.outputs.matrix).include[0].version_name }}
         run: node builder/scripts/eas-publisher.mjs publisher
 

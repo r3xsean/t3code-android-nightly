@@ -166,7 +166,7 @@ decision, and verify the phone-facing update path.
 
 Blocked by: T1, T2, T3.
 
-## Implementation notes
+## Implementation Notes
 
 - Native delivery selection is a mechanical seam: compare the generated Android
   fingerprint to the latest published OTA-enabled native base. Generate every
@@ -185,6 +185,15 @@ Blocked by: T1, T2, T3.
   evaluating T3's startup linking configuration, then Expo falls back to the
   embedded APK while subsequent checks misleadingly report the cached update
   as current.
+- T3 Connect configuration is a mechanical publisher-contract seam: the
+  credential-isolated publisher must carry the same validated public Clerk key,
+  JWT template, and relay URL as the exported bundle. Publication must fail
+  before contacting Expo when any field is absent or no longer targets T3's
+  production services.
+- T3 Connect recovery is a behavioral Android seam: a clean `.957` installation
+  must accept the repaired `.958` OTA, restart without a native reinstall, and
+  render the **T3 Account** row in Settings. A second update check must report no
+  newer update.
 - Blast radius is high because the workflow publishes external updates and
   signed binaries. Live tracers use the dedicated companion project and channel,
   immutable upstream commits, and reversible branch-scoped workflow runs before

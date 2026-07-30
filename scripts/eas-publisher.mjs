@@ -2,23 +2,41 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { companionExpoConfig } from "./companion-contract.mjs";
+import {
+  resolveConnectPublicConfig,
+  verifyExpoConfig as verifyConnectExpoConfig,
+} from "./connect-config.mjs";
 
-export function publisherConfig({
-  expoProjectId,
-  expoOwner,
-  updateChannel,
-  runtimeVersion,
-  versionName,
-}) {
-  return {
-    expo: companionExpoConfig({
-      expoProjectId,
-      expoOwner,
-      updateChannel,
-      runtimeVersion,
-      versionName,
-    }),
+export function publisherConfig(
+  {
+    expoProjectId,
+    expoOwner,
+    updateChannel,
+    runtimeVersion,
+    versionName,
+  },
+  connectEnv,
+) {
+  const expo = companionExpoConfig({
+    expoProjectId,
+    expoOwner,
+    updateChannel,
+    runtimeVersion,
+    versionName,
+  });
+  const connect = resolveConnectPublicConfig(connectEnv);
+  expo.extra = {
+    ...expo.extra,
+    clerk: {
+      publishableKey: connect.T3CODE_CLERK_PUBLISHABLE_KEY,
+      jwtTemplate: connect.T3CODE_CLERK_JWT_TEMPLATE,
+    },
+    relay: {
+      url: connect.T3CODE_RELAY_URL,
+    },
   };
+  verifyConnectExpoConfig(expo, connect);
+  return { expo };
 }
 
 export function publisherPackage({ versionName }) {
@@ -37,13 +55,16 @@ async function main() {
   if (!directory) {
     throw new Error("Usage: eas-publisher.mjs <publisher-directory>");
   }
-  const config = publisherConfig({
-    expoProjectId: process.env.EXPO_PROJECT_ID,
-    expoOwner: process.env.EXPO_OWNER,
-    updateChannel: process.env.EXPO_UPDATE_CHANNEL,
-    runtimeVersion: process.env.NATIVE_FINGERPRINT,
-    versionName: process.env.VERSION_NAME,
-  });
+  const config = publisherConfig(
+    {
+      expoProjectId: process.env.EXPO_PROJECT_ID,
+      expoOwner: process.env.EXPO_OWNER,
+      updateChannel: process.env.EXPO_UPDATE_CHANNEL,
+      runtimeVersion: process.env.NATIVE_FINGERPRINT,
+      versionName: process.env.VERSION_NAME,
+    },
+    process.env,
+  );
   await mkdir(directory, { recursive: true });
   await writeFile(
     path.join(directory, "app.json"),

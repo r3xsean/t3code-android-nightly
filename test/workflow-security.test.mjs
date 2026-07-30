@@ -43,6 +43,21 @@ test("trusted OTA publisher checks out only the builder and executes a locked CL
   );
 });
 
+test("trusted OTA publisher receives every validated T3 Connect public identifier", async () => {
+  const workflow = await readFile(".github/workflows/android-nightly.yml", "utf8");
+  const publish = job(workflow, "publish-ota", "record-ota");
+  for (const name of [
+    "T3CODE_CLERK_PUBLISHABLE_KEY",
+    "T3CODE_CLERK_JWT_TEMPLATE",
+    "T3CODE_RELAY_URL",
+  ]) {
+    assert.match(
+      publish,
+      new RegExp(`${name}:\\s*\\$\\{\\{ vars\\.${name} \\}\\}`),
+    );
+  }
+});
+
 test("OTA state recording uses a fresh job without the Expo token or EAS tree", async () => {
   const workflow = await readFile(".github/workflows/android-nightly.yml", "utf8");
   const record = job(workflow, "record-ota", "sign");
