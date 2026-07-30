@@ -6,7 +6,8 @@ export const FINGERPRINT_VERSION_NAME = "0.0.0-nightly.19700101.1";
 
 export const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export const FINGERPRINT_PATTERN = /^[0-9a-f]{40}$/;
+export const FINGERPRINT_SOURCE = "[0-9a-f]{40}";
+export const FINGERPRINT_PATTERN = new RegExp(`^${FINGERPRINT_SOURCE}$`);
 export const VERSION_NAME_PATTERN =
   /^\d+\.\d+\.\d+-nightly\.\d{8}\.\d+$/;
 export const EXPO_OWNER_PATTERN =
@@ -51,6 +52,9 @@ export function companionExpoConfig({
   runtimeVersion,
   versionName,
 }) {
+  if (runtimeVersion === undefined || versionName === undefined) {
+    throw new Error("Expo runtime version and update version are required");
+  }
   validateCompanionDelivery({
     expoProjectId,
     expoOwner,

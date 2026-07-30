@@ -7,6 +7,7 @@ function job(workflow, name, nextName) {
   const end = workflow.indexOf(`\n  ${nextName}:`, start + 1);
   assert.notEqual(start, -1, `missing ${name} job`);
   assert.notEqual(end, -1, `missing ${nextName} job`);
+  assert.ok(end > start, `${nextName} must follow ${name}`);
   return workflow.slice(start, end);
 }
 

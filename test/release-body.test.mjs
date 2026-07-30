@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { latestNativeBase } from "../scripts/nightlies.mjs";
 import { releaseBody } from "../scripts/release-body.mjs";
 
 test("records machine-readable versioning and human-readable provenance", () => {
@@ -28,4 +29,20 @@ test("records machine-readable versioning and human-readable provenance", () => 
   assert.match(body, /<!-- expo-updates-enabled: true -->/);
   assert.match(body, /80ead5f3a7743010cdab6ad84fa4dcbd4c021038/);
   assert.match(body, /dev\.r3xsean\.t3code\.nightly/);
+  assert.deepEqual(
+    latestNativeBase([
+      {
+        tag_name: "0.0.29-nightly.20260727.922",
+        draft: false,
+        body,
+      },
+    ]),
+    {
+      version_code: 1785178485,
+      version_name: "0.0.29-nightly.20260727.922",
+      native_fingerprint: "5".repeat(40),
+      expo_project_id: "11111111-2222-4333-8444-555555555555",
+      expo_update_channel: "nightly",
+    },
+  );
 });

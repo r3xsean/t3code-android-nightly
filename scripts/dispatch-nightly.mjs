@@ -72,8 +72,15 @@ async function gh(ghPath, args) {
 }
 
 export async function readState(statePath) {
+  let contents;
   try {
-    const state = JSON.parse(await readFile(statePath, "utf8"));
+    contents = await readFile(statePath, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+  try {
+    const state = JSON.parse(contents);
     if (
       typeof state?.tag !== "string" ||
       !Number.isInteger(state?.attempt) ||
@@ -83,7 +90,6 @@ export async function readState(statePath) {
     }
     return state;
   } catch (error) {
-    if (error?.code === "ENOENT") return null;
     const quarantined = `${statePath}.corrupt-${Date.now()}`;
     await rename(statePath, quarantined);
     return null;

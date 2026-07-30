@@ -124,9 +124,10 @@ identity.
 9. Android installs the OTA-enabled bootstrap APK and preserves pairing through
    both an OTA update and a later APK upgrade.
 10. Obtainium discovers and offers the later native APK version.
-11. The launch agent survives logout, reboot, and T3 Code nightly replacement,
-    and dispatches at most one active workflow for an unpublished upstream tag,
-    with no more than three total attempts for a failing tag.
+11. The launch agent survives logout/login cycles, reboot after the user logs
+    back in, and T3 Code nightly replacement. It dispatches at most one active
+    workflow for an unpublished upstream tag, with no more than three total
+    attempts for a failing tag.
 12. Before native generation, Expo's resolved public configuration contains the
    configured T3 Connect identifiers, restricted to T3's production Clerk host,
    JWT template, and relay.

@@ -1,9 +1,9 @@
 import { appendFile, readFile } from "node:fs/promises";
 
-const FINGERPRINT = /^[0-9a-f]{40}$/;
+import { FINGERPRINT_PATTERN } from "./companion-contract.mjs";
 
 function validFingerprint(value) {
-  if (!FINGERPRINT.test(value ?? "")) {
+  if (!FINGERPRINT_PATTERN.test(value ?? "")) {
     throw new Error("Expected a 40-character lowercase native fingerprint hash");
   }
   return value;
@@ -16,7 +16,7 @@ export function parseFingerprintOutput(output) {
   } catch {
     throw new Error("Could not parse Expo fingerprint output");
   }
-  if (!FINGERPRINT.test(parsed?.hash ?? "")) {
+  if (!FINGERPRINT_PATTERN.test(parsed?.hash ?? "")) {
     throw new Error("Expo fingerprint output is missing a valid fingerprint hash");
   }
   return parsed.hash;

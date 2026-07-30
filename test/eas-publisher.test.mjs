@@ -35,4 +35,13 @@ test("rejects malformed trusted publication inputs", () => {
       }),
     /project/,
   );
+  assert.throws(
+    () =>
+      publisherConfig({
+        expoProjectId: "f6933e31-cda6-4835-8f8d-93f4970ff60f",
+        expoOwner: "r3xsean",
+        updateChannel: "nightly",
+      }),
+    /required/,
+  );
 });

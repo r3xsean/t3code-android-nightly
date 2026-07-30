@@ -2,6 +2,7 @@ import {
   compareNightlyTags,
   NIGHTLY_PATTERN,
 } from "./processed-state.mjs";
+import { FINGERPRINT_SOURCE } from "./companion-contract.mjs";
 
 const NIGHTLY_TAG = NIGHTLY_PATTERN;
 const DOWNSTREAM_NIGHTLY_TAG =
@@ -70,7 +71,11 @@ export function latestNativeBase(releases) {
     )
     .map((release) => {
       const versionCode = marker(release.body, "android-version-code", "\\d+");
-      const fingerprint = marker(release.body, "native-fingerprint", "[0-9a-f]{40}");
+      const fingerprint = marker(
+        release.body,
+        "native-fingerprint",
+        FINGERPRINT_SOURCE,
+      );
       const projectId = marker(
         release.body,
         "expo-project-id",
