@@ -1,5 +1,9 @@
-const NIGHTLY_TAG =
-  /^v\d+\.\d+\.\d+-nightly\.\d{8}\.\d+$/;
+import {
+  compareNightlyTags,
+  NIGHTLY_PATTERN,
+} from "./processed-state.mjs";
+
+const NIGHTLY_TAG = NIGHTLY_PATTERN;
 const DOWNSTREAM_NIGHTLY_TAG =
   /^\d+\.\d+\.\d+-nightly\.\d{8}\.\d+$/;
 
@@ -139,25 +143,15 @@ export function selectCandidates(
     throw new Error("Published companions contain colliding Android version codes");
   }
 
-  let processedCode = 0;
   if (processedTag) {
-    const processed = qualifying.find(
-      (release) => release.tag_name === processedTag,
-    );
-    if (!processed) {
-      throw new Error(
-        `Recorded processed nightly is absent from fetched qualifying releases: ${processedTag}`,
-      );
-    }
-    processedCode = processed.version_code;
+    compareNightlyTags(processedTag, processedTag);
   }
-  const floor = Math.max(
-    processedCode,
-    codes.length === 0 ? 0 : Math.max(...codes),
-  );
+  const floor = codes.length === 0 ? 0 : Math.max(...codes);
   const eligible = qualifying.filter(
     (release) =>
       release.version_code > floor &&
+      (!processedTag ||
+        compareNightlyTags(release.tag_name, processedTag) > 0) &&
       !existingTags.has(downstreamTag(release.tag_name)),
   );
   return eligible.length === 0 ? [] : [eligible.at(-1)];

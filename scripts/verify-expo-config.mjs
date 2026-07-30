@@ -1,20 +1,25 @@
 import { readFile } from "node:fs/promises";
 
+import { companionExpoConfig } from "./companion-contract.mjs";
+
 export function verifyExpoConfig(config, expected) {
+  const contract = companionExpoConfig(expected);
   const checks = [
-    config?.name === "T3 Code Nightly",
-    config?.owner === expected.expoOwner,
-    config?.version === expected.versionName,
-    config?.runtimeVersion === expected.runtimeVersion,
-    config?.updates?.enabled === true,
-    config?.updates?.url ===
-      `https://u.expo.dev/${expected.expoProjectId}`,
+    config?.name === contract.name,
+    config?.slug === contract.slug,
+    config?.owner === contract.owner,
+    config?.version === contract.version,
+    config?.runtimeVersion === contract.runtimeVersion,
+    config?.updates?.enabled === contract.updates.enabled,
+    config?.updates?.url === contract.updates.url,
     config?.updates?.requestHeaders?.["expo-channel-name"] ===
-      expected.updateChannel,
-    config?.updates?.checkAutomatically === "ON_LOAD",
-    config?.updates?.fallbackToCacheTimeout === 0,
-    config?.android?.package === "dev.r3xsean.t3code.nightly",
-    config?.extra?.eas?.projectId === expected.expoProjectId,
+      contract.updates.requestHeaders["expo-channel-name"],
+    config?.updates?.checkAutomatically ===
+      contract.updates.checkAutomatically,
+    config?.updates?.fallbackToCacheTimeout ===
+      contract.updates.fallbackToCacheTimeout,
+    config?.android?.package === contract.android.package,
+    config?.extra?.eas?.projectId === contract.extra.eas.projectId,
   ];
   if (checks.some((check) => !check)) {
     throw new Error("Resolved companion Expo configuration mismatch");

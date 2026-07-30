@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   finalizeConfig,
   prepareConfig,
+  prepareFingerprintConfig,
 } from "../scripts/prepare-source.mjs";
 
 const fixture = `const config = {
@@ -44,6 +45,7 @@ test("turns upstream config into an OTA-enabled companion identity", () => {
     ...companion,
   });
   assert.match(prepared, /name: "T3 Code Nightly"/);
+  assert.match(prepared, /slug: "t3-code-android-nightly"/);
   assert.match(prepared, /version: "0\.0\.29-nightly\.20260727\.922"/);
   assert.match(prepared, /enabled: true/);
   assert.match(
@@ -59,6 +61,13 @@ test("turns upstream config into an OTA-enabled companion identity", () => {
   );
   assert.match(prepared, /owner: "sean"/);
   assert.match(prepared, /policy: process\.env\.MOBILE_VERSION_POLICY/);
+});
+
+test("uses one neutral delivery version for every native fingerprint", () => {
+  const prepared = prepareFingerprintConfig(fixture, companion);
+  assert.match(prepared, /version: "0\.0\.0-nightly\.19700101\.1"/);
+  assert.match(prepared, /versionCode: 1/);
+  assert.doesNotMatch(prepared, /1785178485/);
 });
 
 test("finalizes the runtime and delivery version after fingerprinting", () => {
@@ -99,10 +108,10 @@ test("accepts routine upstream version-literal changes", () => {
 test("rejects malformed Expo publication identity", () => {
   assert.throws(
     () => prepareConfig(fixture, { ...companion, expoProjectId: "not-a-uuid" }),
-    /expoProjectId/,
+    /Expo project ID/,
   );
   assert.throws(
     () => prepareConfig(fixture, { ...companion, updateChannel: "nightly beta" }),
-    /updateChannel/,
+    /Expo update channel/,
   );
 });

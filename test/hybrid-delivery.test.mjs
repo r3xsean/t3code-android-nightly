@@ -16,11 +16,23 @@ const nativeBase = {
 };
 
 test("compatible native fingerprints choose OTA", () => {
-  assert.equal(chooseDelivery(fingerprint, nativeBase), "ota");
+  assert.equal(
+    chooseDelivery(fingerprint, nativeBase, {
+      expoProjectId: nativeBase.expo_project_id,
+      updateChannel: nativeBase.expo_update_channel,
+    }),
+    "ota",
+  );
 });
 
 test("changed fingerprints and missing bases choose an APK", () => {
-  assert.equal(chooseDelivery("a".repeat(40), nativeBase), "apk");
+  assert.equal(
+    chooseDelivery("a".repeat(40), nativeBase, {
+      expoProjectId: nativeBase.expo_project_id,
+      updateChannel: nativeBase.expo_update_channel,
+    }),
+    "apk",
+  );
   assert.equal(chooseDelivery(fingerprint, null), "apk");
 });
 
@@ -40,6 +52,20 @@ test("rejects a native base from another Expo project or channel", () => {
         updateChannel: "preview",
       }),
     /update channel/,
+  );
+});
+
+test("fails closed when the expected Expo identity is absent", () => {
+  assert.throws(
+    () => chooseDelivery(fingerprint, nativeBase),
+    /expected Expo project/,
+  );
+  assert.throws(
+    () =>
+      chooseDelivery(fingerprint, nativeBase, {
+        expoProjectId: nativeBase.expo_project_id,
+      }),
+    /expected Expo update channel/,
   );
 });
 

@@ -186,15 +186,14 @@ test("processed OTA state advances selection beyond the latest APK", () => {
   );
 });
 
-test("rejects processed state that is absent from fetched qualifying releases", () => {
-  assert.throws(
-    () =>
-      selectCandidates(
-        [release("v0.0.32-nightly.20260730.957", "2026-07-30T15:57:46Z")],
-        [],
-        { processedTag: "v0.0.32-nightly.20260730.999" },
-      ),
-    /processed nightly/,
+test("processed state remains valid when its release has aged out of the fetch window", () => {
+  assert.deepEqual(
+    selectCandidates(
+      [release("v0.0.32-nightly.20260730.957", "2026-07-30T15:57:46Z")],
+      [],
+      { processedTag: "v0.0.31-nightly.20260729.950" },
+    ).map((item) => item.tag_name),
+    ["v0.0.32-nightly.20260730.957"],
   );
 });
 

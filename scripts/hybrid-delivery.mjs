@@ -32,16 +32,16 @@ export function chooseDelivery(
     return "apk";
   }
   validFingerprint(nativeBase.native_fingerprint);
-  if (
-    expected.expoProjectId &&
-    nativeBase.expo_project_id !== expected.expoProjectId
-  ) {
+  if (!expected.expoProjectId) {
+    throw new Error("Missing expected Expo project ID");
+  }
+  if (!expected.updateChannel) {
+    throw new Error("Missing expected Expo update channel");
+  }
+  if (nativeBase.expo_project_id !== expected.expoProjectId) {
     throw new Error("Native base belongs to a different Expo project");
   }
-  if (
-    expected.updateChannel &&
-    nativeBase.expo_update_channel !== expected.updateChannel
-  ) {
+  if (nativeBase.expo_update_channel !== expected.updateChannel) {
     throw new Error("Native base belongs to a different Expo update channel");
   }
   return nativeBase.native_fingerprint === candidateFingerprint ? "ota" : "apk";

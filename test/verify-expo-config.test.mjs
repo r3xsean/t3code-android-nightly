@@ -13,7 +13,7 @@ const expected = {
 
 const config = {
   name: "T3 Code Nightly",
-  slug: "t3-code",
+  slug: "t3-code-android-nightly",
   owner: "r3xsean",
   version: expected.versionName,
   runtimeVersion: expected.runtimeVersion,

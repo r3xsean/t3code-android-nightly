@@ -6,6 +6,9 @@
   "scripts": {
     "test": "node --test"
   },
+  "devDependencies": {
+    "eas-cli": "21.4.0"
+  },
   "engines": {
     "node": ">=24"
   }

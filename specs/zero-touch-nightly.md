@@ -53,7 +53,8 @@ release tag to an immutable commit SHA and builds that SHA.
 
 The untrusted source job checks out and builds the exact upstream commit without
 credentials. It computes the Android native fingerprint before assigning the
-explicit runtime version.
+explicit runtime version. Fingerprinting always uses one neutral version name
+and code, so delivery-version changes cannot masquerade as native changes.
 
 - When the fingerprint matches the latest native APK, the untrusted job exports
   a static update bundle. A separate trusted job that never checks out or
@@ -66,13 +67,18 @@ explicit runtime version.
 APK releases retain the upstream ID, tag, commit SHA, publication time, Android
 version, APK checksum, signing-certificate fingerprint, native fingerprint,
 Expo project ID, and channel. Successful OTA and APK deliveries record the
-upstream tag in the repository's processed-state variable only after
-publication succeeds.
+upstream tag as a namespaced repository Git ref only after publication
+succeeds. The marker uses the workflow's existing `contents: write` authority
+and remains readable without an additional administrative token.
 
 The Expo token and Android signing material must never be present in a job that
 checks out or executes upstream source. End-to-end update code signing is not
 available on the selected Expo plan; updates rely on Expo account authorization
-and TLS, while APK authenticity remains protected by Android signing.
+and TLS, while APK authenticity remains protected by Android signing. The
+credential-bearing publisher installs the exact EAS CLI dependency graph from
+the builder's lockfile before the token is exposed. On every cold start, Expo
+Updates contacts the dedicated Expo endpoint and discloses the companion
+project, channel, runtime, and installation identifiers.
 
 ## Failure behavior
 
@@ -82,6 +88,22 @@ and TLS, while APK authenticity remains protected by Android signing.
 - Preserve old releases for recovery.
 - If the dispatcher cannot reach GitHub, another workflow is active, or a
   dispatch fails, retain retry state and try again without creating a duplicate.
+- Persist dispatch state atomically. Quarantine malformed state instead of
+  wedging future checks.
+- Attempt one upstream nightly at most three times. If all attempts fail, wait
+  for a newer nightly rather than repeatedly exercising credential-bearing
+  publication jobs.
+
+## Automation decision
+
+Sean explicitly selected unattended nightly delivery so that the phone remains
+current without manual GitHub work. This is a deliberate exception to the
+doctrine preference for a human gate before public mutations. Its compensating
+controls are immutable upstream inputs, a dedicated companion identity and Expo
+project, isolated credentials, fail-closed validation, at most three attempts
+per nightly, and preservation of the last working delivery. The automation must
+not publish to T3's repositories, the Play Store, or the official application
+identity.
 
 ## Success evidence
 
@@ -103,7 +125,8 @@ and TLS, while APK authenticity remains protected by Android signing.
    both an OTA update and a later APK upgrade.
 10. Obtainium discovers and offers the later native APK version.
 11. The launch agent survives logout, reboot, and T3 Code nightly replacement,
-    and dispatches at most one workflow for an unpublished upstream tag.
+    and dispatches at most one active workflow for an unpublished upstream tag,
+    with no more than three total attempts for a failing tag.
 12. Before native generation, Expo's resolved public configuration contains the
    configured T3 Connect identifiers, restricted to T3's production Clerk host,
    JWT template, and relay.
@@ -144,7 +167,8 @@ Blocked by: T1, T2, T3.
 ## Implementation notes
 
 - Native delivery selection is a mechanical seam: compare the generated Android
-  fingerprint to the latest published OTA-enabled native base.
+  fingerprint to the latest published OTA-enabled native base. Generate every
+  fingerprint from the same neutral version name and code.
 - Upstream source adaptation is a mechanical, fail-closed seam: every expected
   insertion point must occur exactly once.
 - Secret isolation and publication-state advancement are behavioral seams:

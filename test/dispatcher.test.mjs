@@ -1,9 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 import {
   dispatchDecision,
+  MAX_RETRY_ATTEMPTS,
+  readState,
   retryDelayMilliseconds,
+  writeState,
 } from "../scripts/dispatch-nightly.mjs";
 
 test("dispatches a newer upstream nightly exactly once", () => {
@@ -61,6 +73,23 @@ test("honors retry state and caps exponential backoff at thirty minutes", () => 
   );
 });
 
+test("stops redispatching a failed nightly after a bounded number of attempts", () => {
+  assert.equal(
+    dispatchDecision({
+      latestUpstreamTag: "v0.0.32-nightly.20260730.957",
+      processedTag: "v0.0.32-nightly.20260730.956",
+      activeTags: [],
+      retryState: {
+        tag: "v0.0.32-nightly.20260730.957",
+        attempt: MAX_RETRY_ATTEMPTS,
+        retryAfter: 0,
+      },
+      now: 1,
+    }).action,
+    "exhausted",
+  );
+});
+
 test("fails closed on malformed tags", () => {
   assert.throws(
     () =>
@@ -73,4 +102,30 @@ test("fails closed on malformed tags", () => {
       }),
     /nightly tag/,
   );
+});
+
+test("writes retry state atomically and quarantines a corrupt state file", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "t3-dispatcher-"));
+  const statePath = path.join(directory, "dispatcher-state.json");
+  try {
+    const state = {
+      tag: "v0.0.32-nightly.20260730.957",
+      attempt: 1,
+      retryAfter: 10_000,
+    };
+    await writeState(statePath, state);
+    assert.deepEqual(await readState(statePath), state);
+
+    await writeFile(statePath, "{truncated", { mode: 0o600 });
+    assert.equal(await readState(statePath), null);
+    assert.equal(
+      (await readdir(directory)).some((name) =>
+        name.startsWith("dispatcher-state.json.corrupt-"),
+      ),
+      true,
+    );
+    await assert.rejects(readFile(statePath), /ENOENT/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

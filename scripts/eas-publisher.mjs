@@ -1,10 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const NIGHTLY = /^\d+\.\d+\.\d+-nightly\.\d{8}\.\d+$/;
-const FINGERPRINT = /^[0-9a-f]{40}$/;
+import { companionExpoConfig } from "./companion-contract.mjs";
 
 export function publisherConfig({
   expoProjectId,
@@ -13,47 +10,14 @@ export function publisherConfig({
   runtimeVersion,
   versionName,
 }) {
-  if (!UUID.test(expoProjectId ?? "")) {
-    throw new Error("Expo project ID must be a UUID");
-  }
-  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/.test(expoOwner ?? "")) {
-    throw new Error("Expo owner is invalid");
-  }
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(updateChannel ?? "")) {
-    throw new Error("Expo update channel is invalid");
-  }
-  if (!FINGERPRINT.test(runtimeVersion ?? "")) {
-    throw new Error("Expo runtime version must be a native fingerprint");
-  }
-  if (!NIGHTLY.test(versionName ?? "")) {
-    throw new Error("Expo update version must be a nightly version");
-  }
-
   return {
-    expo: {
-      name: "T3 Code Nightly",
-      slug: "t3-code-android-nightly",
-      owner: expoOwner,
-      version: versionName,
+    expo: companionExpoConfig({
+      expoProjectId,
+      expoOwner,
+      updateChannel,
       runtimeVersion,
-      updates: {
-        enabled: true,
-        url: `https://u.expo.dev/${expoProjectId}`,
-        requestHeaders: {
-          "expo-channel-name": updateChannel,
-        },
-        checkAutomatically: "ON_LOAD",
-        fallbackToCacheTimeout: 0,
-      },
-      android: {
-        package: "dev.r3xsean.t3code.nightly",
-      },
-      extra: {
-        eas: {
-          projectId: expoProjectId,
-        },
-      },
-    },
+      versionName,
+    }),
   };
 }
 

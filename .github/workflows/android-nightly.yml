@@ -42,7 +42,6 @@ jobs:
         name: Resolve official upstream releases
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          LAST_PROCESSED_UPSTREAM_TAG: ${{ vars.LAST_PROCESSED_UPSTREAM_TAG }}
           REQUESTED_UPSTREAM_TAG: ${{ inputs.upstream_tag }}
         run: node scripts/detect-nightlies.mjs
 
@@ -97,13 +96,7 @@ jobs:
           EXPO_OWNER: ${{ vars.EXPO_OWNER }}
           EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
           EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
-          NATIVE_VERSION_CODE: ${{ matrix.release.native_base.version_code || matrix.release.version_code }}
-          NATIVE_VERSION_NAME: ${{ matrix.release.native_base.version_name || matrix.release.version_name }}
-        run: |
-          node builder/scripts/prepare-source.mjs \
-            source \
-            "$NATIVE_VERSION_CODE" \
-            "$NATIVE_VERSION_NAME"
+        run: node builder/scripts/prepare-source.mjs fingerprint source
 
       - name: Align React with the React Native renderer
         run: |
@@ -149,10 +142,10 @@ jobs:
           VERSION_NAME: ${{ matrix.release.version_name }}
         run: |
           node builder/scripts/prepare-source.mjs \
+            finalize \
             source \
             "$VERSION_CODE" \
             "$VERSION_NAME" \
-            --finalize \
             "$NATIVE_FINGERPRINT"
 
       - name: Verify resolved public configuration
@@ -239,7 +232,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       actions: write
-      contents: read
+      contents: write
     steps:
       - name: Check out trusted builder only
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -252,8 +245,9 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install pinned EAS CLI before exposing credentials
-        run: npm install --global eas-cli@21.4.0
+      - name: Install locked EAS publisher before exposing credentials
+        working-directory: builder
+        run: npm ci --ignore-scripts
 
       - name: Download pre-exported static update
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
@@ -279,7 +273,7 @@ jobs:
         run: |
           test -n "$EXPO_TOKEN"
           test -f dist/metadata.json
-          eas update \
+          "$GITHUB_WORKSPACE/builder/node_modules/.bin/eas" update \
             --input-dir dist \
             --skip-bundler \
             --channel "$UPDATE_CHANNEL" \

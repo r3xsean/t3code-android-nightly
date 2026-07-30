@@ -1,11 +1,16 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const APPLICATION_ID = "dev.r3xsean.t3code.nightly";
-const DISPLAY_NAME = "T3 Code Nightly";
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const RUNTIME_VERSION = /^[0-9a-f]{40}$/;
+import {
+  APPLICATION_ID,
+  DISPLAY_NAME,
+  EXPO_SLUG,
+  FINGERPRINT_PATTERN,
+  FINGERPRINT_VERSION_CODE,
+  FINGERPRINT_VERSION_NAME,
+  validateCompanionDelivery,
+  VERSION_NAME_PATTERN,
+} from "./companion-contract.mjs";
 
 function replaceExactlyOnce(source, search, replacement, label) {
   const first = source.indexOf(search);
@@ -32,7 +37,7 @@ function validateVersion({ versionCode, versionName }) {
   if (!Number.isInteger(versionCode) || versionCode < 1) {
     throw new Error("versionCode must be a positive integer");
   }
-  if (!/^\d+\.\d+\.\d+-nightly\.\d{8}\.\d+$/.test(versionName)) {
+  if (!VERSION_NAME_PATTERN.test(versionName)) {
     throw new Error(`Invalid versionName: ${versionName}`);
   }
 }
@@ -48,21 +53,19 @@ export function prepareConfig(
   },
 ) {
   validateVersion({ versionCode, versionName });
-  if (!UUID.test(expoProjectId ?? "")) {
-    throw new Error("expoProjectId must be a UUID");
-  }
-  if (!/^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,37}[A-Za-z0-9])?$/.test(expoOwner ?? "")) {
-    throw new Error("expoOwner is invalid");
-  }
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(updateChannel ?? "")) {
-    throw new Error("updateChannel is invalid");
-  }
+  validateCompanionDelivery({ expoProjectId, expoOwner, updateChannel });
 
   let prepared = replaceExactlyOnce(
     source,
     '  name: variant.appName,\n',
     `  name: "${DISPLAY_NAME}",\n`,
     "application name",
+  );
+  prepared = replacePatternExactlyOnce(
+    prepared,
+    /^  slug: "[^"\r\n]+",\r?$/gm,
+    `  slug: "${EXPO_SLUG}",`,
+    "Expo slug",
   );
   prepared = replacePatternExactlyOnce(
     prepared,
@@ -97,12 +100,25 @@ export function prepareConfig(
   return prepared;
 }
 
+export function prepareFingerprintConfig(
+  source,
+  { expoProjectId, expoOwner, updateChannel },
+) {
+  return prepareConfig(source, {
+    versionCode: FINGERPRINT_VERSION_CODE,
+    versionName: FINGERPRINT_VERSION_NAME,
+    expoProjectId,
+    expoOwner,
+    updateChannel,
+  });
+}
+
 export function finalizeConfig(
   source,
   { runtimeVersion, versionCode, versionName },
 ) {
   validateVersion({ versionCode, versionName });
-  if (!RUNTIME_VERSION.test(runtimeVersion ?? "")) {
+  if (!FINGERPRINT_PATTERN.test(runtimeVersion ?? "")) {
     throw new Error("runtimeVersion must be a 40-character lowercase hex fingerprint");
   }
 
@@ -128,23 +144,24 @@ export function finalizeConfig(
 }
 
 async function main() {
-  const [sourceRoot, versionCodeText, versionName, mode, runtimeVersion] =
+  const [mode, sourceRoot, versionCodeText, versionName, runtimeVersion] =
     process.argv.slice(2);
-  const versionCode = Number.parseInt(versionCodeText, 10);
-  if (!sourceRoot || !versionName) {
+  if (!sourceRoot || !["fingerprint", "finalize"].includes(mode)) {
     throw new Error(
-      "Usage: prepare-source.mjs <source-root> <version-code> <version-name> [--finalize <runtime-version>]",
+      "Usage: prepare-source.mjs fingerprint <source-root> | finalize <source-root> <version-code> <version-name> <runtime-version>",
     );
   }
 
   const configPath = path.join(sourceRoot, "apps/mobile/app.config.ts");
   const source = await readFile(configPath, "utf8");
   const prepared =
-    mode === "--finalize"
-      ? finalizeConfig(source, { runtimeVersion, versionCode, versionName })
-      : prepareConfig(source, {
-          versionCode,
+    mode === "finalize"
+      ? finalizeConfig(source, {
+          runtimeVersion,
+          versionCode: Number.parseInt(versionCodeText, 10),
           versionName,
+        })
+      : prepareFingerprintConfig(source, {
           expoProjectId: process.env.EXPO_PROJECT_ID,
           expoOwner: process.env.EXPO_OWNER,
           updateChannel: process.env.EXPO_UPDATE_CHANNEL,

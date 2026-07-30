@@ -1,31 +1,24 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import {
+  compareNightlyTags,
+  NIGHTLY_PATTERN,
+  processedTagFromRefs,
+} from "./processed-state.mjs";
+
 const execFileAsync = promisify(execFile);
-const NIGHTLY =
-  /^v(\d+)\.(\d+)\.(\d+)-nightly\.(\d{8})\.(\d+)$/;
+const NIGHTLY = NIGHTLY_PATTERN;
 const DEFAULT_REPOSITORY = "r3xsean/t3code-android-nightly";
-const VARIABLE = "LAST_PROCESSED_UPSTREAM_TAG";
-
-function tagParts(tag) {
-  const match = tag?.match(NIGHTLY);
-  if (!match) {
-    throw new Error(`Invalid nightly tag: ${tag}`);
-  }
-  return match.slice(1).map(BigInt);
-}
-
-function compareTags(left, right) {
-  const a = tagParts(left);
-  const b = tagParts(right);
-  for (let index = 0; index < a.length; index += 1) {
-    if (a[index] < b[index]) return -1;
-    if (a[index] > b[index]) return 1;
-  }
-  return 0;
-}
+export const MAX_RETRY_ATTEMPTS = 3;
 
 export function retryDelayMilliseconds(attempt) {
   if (!Number.isInteger(attempt) || attempt < 1) {
@@ -41,10 +34,9 @@ export function dispatchDecision({
   retryState,
   now,
 }) {
-  tagParts(latestUpstreamTag);
+  compareNightlyTags(latestUpstreamTag, latestUpstreamTag);
   if (processedTag) {
-    tagParts(processedTag);
-    if (compareTags(latestUpstreamTag, processedTag) <= 0) {
+    if (compareNightlyTags(latestUpstreamTag, processedTag) <= 0) {
       return { action: "current", tag: latestUpstreamTag };
     }
   }
@@ -62,6 +54,12 @@ export function dispatchDecision({
       retryAfter: retryState.retryAfter,
     };
   }
+  if (
+    retryState?.tag === latestUpstreamTag &&
+    retryState.attempt >= MAX_RETRY_ATTEMPTS
+  ) {
+    return { action: "exhausted", tag: latestUpstreamTag };
+  }
   return { action: "dispatch", tag: latestUpstreamTag };
 }
 
@@ -73,7 +71,7 @@ async function gh(ghPath, args) {
   return stdout;
 }
 
-async function readState(statePath) {
+export async function readState(statePath) {
   try {
     const state = JSON.parse(await readFile(statePath, "utf8"));
     if (
@@ -86,8 +84,19 @@ async function readState(statePath) {
     return state;
   } catch (error) {
     if (error?.code === "ENOENT") return null;
-    throw error;
+    const quarantined = `${statePath}.corrupt-${Date.now()}`;
+    await rename(statePath, quarantined);
+    return null;
   }
+}
+
+export async function writeState(statePath, state) {
+  await mkdir(path.dirname(statePath), { recursive: true });
+  const temporary = `${statePath}.${process.pid}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, {
+    mode: 0o600,
+  });
+  await rename(temporary, statePath);
 }
 
 async function main() {
@@ -119,18 +128,14 @@ async function main() {
     throw new Error("No qualifying upstream nightly found");
   }
 
-  let processedTag = "";
-  try {
-    const variable = JSON.parse(
+  const processedTag = processedTagFromRefs(
+    JSON.parse(
       await gh(ghPath, [
         "api",
-        `repos/${repository}/actions/variables/${VARIABLE}`,
+        `repos/${repository}/git/matching-refs/tags/processed-nightly/`,
       ]),
-    );
-    processedTag = variable.value;
-  } catch (error) {
-    if (!String(error?.stderr ?? "").includes("HTTP 404")) throw error;
-  }
+    ),
+  );
 
   const runs = JSON.parse(
     await gh(ghPath, [
@@ -152,10 +157,20 @@ async function main() {
     now: Date.now(),
   });
   if (decision.action !== "dispatch") {
+    if (decision.action === "current") {
+      await rm(statePath, { force: true });
+    }
     console.log(`${decision.action}: ${latest}`);
     return;
   }
 
+  const attempt =
+    retryState?.tag === latest ? retryState.attempt + 1 : 1;
+  await writeState(statePath, {
+    tag: latest,
+    attempt,
+    retryAfter: Date.now() + retryDelayMilliseconds(attempt),
+  });
   try {
     await gh(ghPath, [
       "workflow",
@@ -166,32 +181,15 @@ async function main() {
       "--field",
       `upstream_tag=${latest}`,
     ]);
-    await rm(statePath, { force: true });
     console.log(`dispatched: ${latest}`);
   } catch (error) {
-    const attempt =
-      retryState?.tag === latest ? Math.min(retryState.attempt + 1, 32) : 1;
-    await mkdir(stateDirectory, { recursive: true });
-    await writeFile(
-      statePath,
-      `${JSON.stringify(
-        {
-          tag: latest,
-          attempt,
-          retryAfter: Date.now() + retryDelayMilliseconds(attempt),
-        },
-        null,
-        2,
-      )}\n`,
-      { mode: 0o600 },
-    );
     throw error;
   }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
-    console.error(error);
+    console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   });
 }

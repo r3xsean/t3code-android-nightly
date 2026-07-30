@@ -40,6 +40,16 @@ test("detection carries the OTA-enabled native base into the immutable matrix", 
     }
     if (
       pathname ===
+      "/repos/owner/repo/git/matching-refs/tags/processed-nightly/"
+    ) {
+      return Response.json([
+        {
+          ref: `refs/tags/processed-nightly/${previous.tag_name}`,
+        },
+      ]);
+    }
+    if (
+      pathname ===
       "/repos/pingdotgg/t3code/git/ref/tags/v0.0.32-nightly.20260730.957"
     ) {
       return Response.json({
@@ -55,7 +65,6 @@ test("detection carries the OTA-enabled native base into the immutable matrix", 
   const matrix = await detect({
     token: "token",
     downstreamRepository: "owner/repo",
-    processedTag: previous.tag_name,
   });
   assert.equal(matrix.length, 1);
   assert.equal(matrix[0].upstream_tag, latest.tag_name);

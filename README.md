@@ -29,7 +29,9 @@ This build targets 64-bit ARM Android phones (`arm64-v8a`).
 4. Allow Obtainium to install unknown apps when Android prompts.
 
 After the OTA-enabled bootstrap APK, the app checks for compatible Expo updates
-when it launches. A downloaded update is applied on the next reload. When a
+when it launches, which contacts Expo with the companion project, runtime,
+channel, and installation identifiers. A downloaded update is applied on the
+next reload. When a
 nightly changes native Android code or dependencies, the automation publishes a
 new signed APK instead; Obtainium then provides the Android update prompt.
 Companion APKs are normal GitHub releases, so prerelease inclusion is not
@@ -54,9 +56,17 @@ untouched. After a successful delivery, the workflow deletes its temporary
 Actions artifacts. APKs, checksums, and provenance attached to GitHub Releases
 remain available to Obtainium.
 
+Expo OTA updates are a second delivery trust root: they are authorized by the
+dedicated Expo account token and delivered over TLS, rather than authenticated
+by the APK signing certificate. The credential-bearing publisher installs the
+exact EAS CLI dependency tree recorded in `package-lock.json` and never executes
+upstream source.
+
 The local macOS LaunchAgent polls every five minutes while the Mac is online and
 dispatches the workflow for a newer official nightly. It lives outside the T3
-Code application, so desktop nightly updates and reboots do not replace it.
+Code application, so desktop nightly updates and reboots do not replace it. A
+failed nightly is attempted no more than three times; after that, the dispatcher
+waits for a newer nightly instead of creating an endless retry loop.
 
 A monthly marker commit keeps GitHub from disabling this public repository's
 scheduled workflow after 60 days without repository activity.

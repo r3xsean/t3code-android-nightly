@@ -1,3 +1,5 @@
+import { APPLICATION_ID } from "./companion-contract.mjs";
+
 export function releaseBody(item, certificateSha256) {
   return `<!-- android-version-code: ${item.version_code} -->
 <!-- upstream-release-id: ${item.upstream_release_id} -->
@@ -15,7 +17,7 @@ Built automatically from the official T3 Code nightly
 | --- | --- |
 | Upstream commit | [\`${item.upstream_sha}\`](https://github.com/pingdotgg/t3code/commit/${item.upstream_sha}) |
 | Upstream published | \`${item.upstream_published_at}\` |
-| Android package | \`dev.r3xsean.t3code.nightly\` |
+| Android package | \`${APPLICATION_ID}\` |
 | Android version name | \`${item.version_name}\` |
 | Android version code | \`${item.version_code}\` |
 | Native compatibility fingerprint | \`${item.native_fingerprint}\` |

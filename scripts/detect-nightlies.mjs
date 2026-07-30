@@ -8,12 +8,12 @@ import {
   resolveCommitSha,
   selectCandidates,
 } from "./nightlies.mjs";
+import { readProcessedTag } from "./record-processed.mjs";
 
 export async function detect({
   token,
   downstreamRepository,
   requestedTag,
-  processedTag,
 }) {
   if (!downstreamRepository?.includes("/")) {
     throw new Error("GITHUB_REPOSITORY must be owner/name");
@@ -26,6 +26,7 @@ export async function detect({
   const downstream = await api(
     `/repos/${downstreamRepository}/releases?per_page=100`,
   );
+  const processedTag = await readProcessedTag(api, downstreamRepository);
 
   let candidates = selectCandidates(upstream, downstream, { processedTag });
   if (requestedTag) {
@@ -37,21 +38,7 @@ export async function detect({
         `Requested tag is not among the latest upstream releases: ${requestedTag}`,
       );
     }
-    if (processedTag && !upstream.some((release) => release.tag_name === processedTag)) {
-      throw new Error(
-        `Recorded processed nightly is absent from fetched releases: ${processedTag}`,
-      );
-    }
-    candidates = selectCandidates(
-      processedTag
-        ? [
-            requested,
-            upstream.find((release) => release.tag_name === processedTag),
-          ]
-        : [requested],
-      downstream,
-      { processedTag },
-    );
+    candidates = selectCandidates([requested], downstream, { processedTag });
   }
 
   const nativeBase = latestNativeBase(downstream);
@@ -76,7 +63,6 @@ async function main() {
     token: process.env.GITHUB_TOKEN,
     downstreamRepository: process.env.GITHUB_REPOSITORY,
     requestedTag: process.env.REQUESTED_UPSTREAM_TAG || undefined,
-    processedTag: process.env.LAST_PROCESSED_UPSTREAM_TAG || undefined,
   });
 
   const output = JSON.stringify({ include: matrix });
