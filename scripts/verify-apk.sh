@@ -52,6 +52,9 @@ export EXPECTED_PACKAGE="$expected_package"
 export VERSION_CODE="$expected_version_code"
 export VERSION_NAME="$expected_version_name"
 export EXPECTED_ABI="$expected_abi"
+export NATIVE_FINGERPRINT="${NATIVE_FINGERPRINT:?}"
+export EXPO_PROJECT_ID="${EXPO_PROJECT_ID:?}"
+export EXPO_UPDATE_CHANNEL="${EXPO_UPDATE_CHANNEL:?}"
 
 # The JavaScript template literal is intentionally protected from shell expansion.
 # shellcheck disable=SC2016
@@ -67,7 +70,11 @@ node -e '
     package_id: process.env.EXPECTED_PACKAGE,
     abi: process.env.EXPECTED_ABI,
     certificate_sha256: process.env.CERTIFICATE_SHA256,
-    apk_sha256: process.env.APK_SHA256
+    apk_sha256: process.env.APK_SHA256,
+    native_fingerprint: process.env.NATIVE_FINGERPRINT,
+    expo_project_id: process.env.EXPO_PROJECT_ID,
+    expo_update_channel: process.env.EXPO_UPDATE_CHANNEL,
+    expo_updates_enabled: true
   };
   fs.writeFileSync(process.argv[1], `${JSON.stringify(output, null, 2)}\n`);
 ' "$metadata_path"

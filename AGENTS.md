@@ -33,9 +33,11 @@ signing path can silently replace the installed application.
 
 ## Completion
 
-Static tests are necessary but not sufficient. Any change touching the build or
-release path is complete only after a GitHub-hosted run produces an APK whose
-package, version, checksum, and persistent certificate pass the workflow's
-behavioral checks. A failed run must leave the prior public release unchanged.
+Static tests are necessary but not sufficient. Any change touching the delivery
+path is complete only after a GitHub-hosted run proves the selected path: an APK
+must pass package, version, checksum, and persistent-certificate checks; an OTA
+must publish a pre-exported bundle to the dedicated runtime and channel without
+checking out upstream source in the credential-bearing job. A failed run must
+leave the prior public release and processed-state marker unchanged.
 
 Follow Sean's doctrine at `~/doctrine/AGENTS.md` for project work.

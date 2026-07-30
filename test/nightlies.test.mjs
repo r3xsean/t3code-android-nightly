@@ -6,6 +6,7 @@ import {
   androidVersionName,
   downstreamTag,
   isQualifyingNightly,
+  latestNativeBase,
   selectCandidates,
 } from "../scripts/nightlies.mjs";
 
@@ -169,4 +170,64 @@ test("same-second nightlies choose the higher sequence without wedging", () => {
     ],
   );
   assert.equal(selected[0].tag_name, "v0.0.29-nightly.20260727.922");
+});
+
+test("processed OTA state advances selection beyond the latest APK", () => {
+  const upstream = [
+    release("v0.0.32-nightly.20260730.956", "2026-07-30T12:58:58Z"),
+    release("v0.0.32-nightly.20260730.957", "2026-07-30T15:57:46Z"),
+  ];
+  const selected = selectCandidates(upstream, [], {
+    processedTag: "v0.0.32-nightly.20260730.956",
+  });
+  assert.deepEqual(
+    selected.map((item) => item.tag_name),
+    ["v0.0.32-nightly.20260730.957"],
+  );
+});
+
+test("rejects processed state that is absent from fetched qualifying releases", () => {
+  assert.throws(
+    () =>
+      selectCandidates(
+        [release("v0.0.32-nightly.20260730.957", "2026-07-30T15:57:46Z")],
+        [],
+        { processedTag: "v0.0.32-nightly.20260730.999" },
+      ),
+    /processed nightly/,
+  );
+});
+
+test("extracts the newest OTA-enabled native base from release markers", () => {
+  const base = latestNativeBase([
+    {
+      tag_name: "0.0.32-nightly.20260730.956",
+      draft: false,
+      body: `<!-- android-version-code: 1785425938 -->
+<!-- native-fingerprint: ${"5".repeat(40)} -->
+<!-- expo-project-id: 11111111-2222-4333-8444-555555555555 -->
+<!-- expo-update-channel: nightly -->
+<!-- expo-updates-enabled: true -->`,
+    },
+  ]);
+  assert.deepEqual(base, {
+    version_code: 1785425938,
+    version_name: "0.0.32-nightly.20260730.956",
+    native_fingerprint: "5".repeat(40),
+    expo_project_id: "11111111-2222-4333-8444-555555555555",
+    expo_update_channel: "nightly",
+  });
+});
+
+test("legacy APK releases do not masquerade as OTA-enabled bases", () => {
+  assert.equal(
+    latestNativeBase([
+      {
+        tag_name: "0.0.32-nightly.20260730.956",
+        draft: false,
+        body: "<!-- android-version-code: 1785425938 -->",
+      },
+    ]),
+    null,
+  );
 });

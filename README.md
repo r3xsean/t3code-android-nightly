@@ -10,6 +10,10 @@ The companion:
 - works with direct LAN or Tailscale environment pairing;
 - supports T3 Connect using validated public production identifiers;
 - is built from the exact commit recorded by an official upstream nightly;
+- receives JavaScript-only nightlies through its dedicated Expo Updates
+  channel;
+- falls back automatically to a signed APK when Android native compatibility
+  changes;
 - is signed consistently so Android can upgrade it in place;
 - is published with its source commit, certificate fingerprint, metadata, and
   SHA-256 checksum.
@@ -24,11 +28,14 @@ This build targets 64-bit ARM Android phones (`arm64-v8a`).
 3. Confirm the detected GitHub source, then tap **Add** and **Install**.
 4. Allow Obtainium to install unknown apps when Android prompts.
 
-Obtainium checks GitHub for future releases and provides the Android update
-prompt. Companion releases are normal GitHub releases, so prerelease inclusion
-is not required. Each release tag exactly matches the APK version reported by
-Android, preventing false update prompts. Pair this companion separately from
-the official app.
+After the OTA-enabled bootstrap APK, the app checks for compatible Expo updates
+when it launches. A downloaded update is applied on the next reload. When a
+nightly changes native Android code or dependencies, the automation publishes a
+new signed APK instead; Obtainium then provides the Android update prompt.
+Companion APKs are normal GitHub releases, so prerelease inclusion is not
+required. Each release tag exactly matches the APK version reported by Android,
+preventing false update prompts. Pair this companion separately from the
+official app.
 
 If the one-tap link does not open Obtainium, paste
 `https://github.com/r3xsean/t3code-android-nightly` into Obtainium's **Add App**
@@ -38,13 +45,18 @@ screen.
 
 The workflow accepts only nightly release records from `pingdotgg/t3code`,
 checks out their resolved commit SHA, builds on GitHub-hosted Linux runners, and
-passes the unsigned APK to a separate trusted signing job. Upstream code never
-runs on the signing-key runner. Publication happens only after package,
-signature, and checksum verification; a failed build leaves the previous
-release untouched. After a successful release, the workflow deletes its
-temporary unsigned and signed Actions artifacts. The APK, checksum, and
-provenance attached to GitHub Releases are separate and remain available to
-Obtainium.
+either exports a static update bundle or passes the unsigned APK to a separate
+trusted signing job. Upstream code never runs on a runner holding the Expo token
+or signing key. The trusted Expo job publishes only a pre-exported static
+bundle; APK publication happens only after package, signature, and checksum
+verification. Failed delivery leaves the previous release and processed state
+untouched. After a successful delivery, the workflow deletes its temporary
+Actions artifacts. APKs, checksums, and provenance attached to GitHub Releases
+remain available to Obtainium.
+
+The local macOS LaunchAgent polls every five minutes while the Mac is online and
+dispatches the workflow for a newer official nightly. It lives outside the T3
+Code application, so desktop nightly updates and reboots do not replace it.
 
 A monthly marker commit keeps GitHub from disabling this public repository's
 scheduled workflow after 60 days without repository activity.

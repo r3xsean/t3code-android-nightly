@@ -42,21 +42,25 @@ jobs:
         name: Resolve official upstream releases
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          LAST_PROCESSED_UPSTREAM_TAG: ${{ vars.LAST_PROCESSED_UPSTREAM_TAG }}
           REQUESTED_UPSTREAM_TAG: ${{ inputs.upstream_tag }}
         run: node scripts/detect-nightlies.mjs
 
   build:
-    name: Build ${{ matrix.release.upstream_tag }}
+    name: Prepare ${{ matrix.release.upstream_tag }}
     needs: detect
     if: needs.detect.outputs.has_releases == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      delivery: ${{ steps.plan.outputs.delivery }}
+      native_fingerprint: ${{ steps.plan.outputs.native_fingerprint }}
     strategy:
       fail-fast: false
       matrix:
         release: ${{ fromJSON(needs.detect.outputs.matrix).include }}
     steps:
-      - name: Check out builder
+      - name: Check out trusted builder
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           path: builder
@@ -88,12 +92,18 @@ jobs:
           cache: true
           run-install: true
 
-      - name: Apply companion identity
-        run: >-
-          node builder/scripts/prepare-source.mjs
-          source
-          '${{ matrix.release.version_code }}'
-          '${{ matrix.release.version_name }}'
+      - name: Apply normalized companion identity
+        env:
+          EXPO_OWNER: ${{ vars.EXPO_OWNER }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+          EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
+          NATIVE_VERSION_CODE: ${{ matrix.release.native_base.version_code || matrix.release.version_code }}
+          NATIVE_VERSION_NAME: ${{ matrix.release.native_base.version_name || matrix.release.version_name }}
+        run: |
+          node builder/scripts/prepare-source.mjs \
+            source \
+            "$NATIVE_VERSION_CODE" \
+            "$NATIVE_VERSION_NAME"
 
       - name: Align React with the React Native renderer
         run: |
@@ -116,16 +126,77 @@ jobs:
         working-directory: source/apps/mobile
         run: vp run typecheck
 
-      - name: Verify resolved T3 Connect configuration
+      - id: plan
+        name: Fingerprint native compatibility and select delivery
         working-directory: source/apps/mobile
+        env:
+          APP_VARIANT: preview
+          EXPO_OWNER: ${{ vars.EXPO_OWNER }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+          EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
+          NATIVE_BASE_JSON: ${{ toJSON(matrix.release.native_base) }}
+        run: |
+          vp exec fingerprint fingerprint:generate \
+            --platform android > "$RUNNER_TEMP/fingerprint.json"
+          node "$GITHUB_WORKSPACE/builder/scripts/hybrid-delivery.mjs" \
+            "$RUNNER_TEMP/fingerprint.json" \
+            "$NATIVE_BASE_JSON"
+
+      - name: Assign explicit runtime and delivery version
+        env:
+          NATIVE_FINGERPRINT: ${{ steps.plan.outputs.native_fingerprint }}
+          VERSION_CODE: ${{ matrix.release.version_code }}
+          VERSION_NAME: ${{ matrix.release.version_name }}
+        run: |
+          node builder/scripts/prepare-source.mjs \
+            source \
+            "$VERSION_CODE" \
+            "$VERSION_NAME" \
+            --finalize \
+            "$NATIVE_FINGERPRINT"
+
+      - name: Verify resolved public configuration
+        working-directory: source/apps/mobile
+        env:
+          APP_VARIANT: preview
+          EXPO_OWNER: ${{ vars.EXPO_OWNER }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+          EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
+          NATIVE_FINGERPRINT: ${{ steps.plan.outputs.native_fingerprint }}
+          VERSION_NAME: ${{ matrix.release.version_name }}
         run: |
           config="$RUNNER_TEMP/t3code-expo-public-config.json"
           vp exec expo config --type public --json > "$config"
           node "$GITHUB_WORKSPACE/builder/scripts/connect-config.mjs" \
             --verify-expo \
             "$config"
+          node "$GITHUB_WORKSPACE/builder/scripts/verify-expo-config.mjs" \
+            "$config"
+
+      - name: Export static Android update
+        if: steps.plan.outputs.delivery == 'ota'
+        working-directory: source/apps/mobile
+        env:
+          APP_VARIANT: preview
+          CI: "1"
+          EXPO_NO_GIT_STATUS: "1"
+        run: >-
+          vp exec expo export
+          --platform android
+          --output-dir "$GITHUB_WORKSPACE/ota-dist"
+          --dump-assetmap
+
+      - name: Upload static update
+        if: steps.plan.outputs.delivery == 'ota'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: ota-${{ matrix.release.upstream_tag }}
+          path: ota-dist
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Generate Android project
+        if: steps.plan.outputs.delivery == 'apk'
         working-directory: source/apps/mobile
         env:
           APP_VARIANT: preview
@@ -134,12 +205,14 @@ jobs:
         run: vp exec expo prebuild --clean --platform android
 
       - name: Compile release APK
+        if: steps.plan.outputs.delivery == 'apk'
         working-directory: source/apps/mobile/android
         env:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Stage unsigned APK
+        if: steps.plan.outputs.delivery == 'apk'
         env:
           VERSION_NAME: ${{ matrix.release.version_name }}
         run: >-
@@ -148,6 +221,7 @@ jobs:
           "unsigned-${VERSION_NAME}.apk"
 
       - name: Upload unsigned build
+        if: steps.plan.outputs.delivery == 'apk'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: unsigned-${{ matrix.release.upstream_tag }}
@@ -155,20 +229,89 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  sign:
-    name: Sign ${{ matrix.release.upstream_tag }}
+  publish-ota:
+    name: Publish trusted OTA update
     needs:
       - detect
       - build
-    if: needs.detect.outputs.has_releases == 'true'
+    if: needs.build.outputs.delivery == 'ota'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Check out trusted builder only
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: builder
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "24"
+
+      - name: Install pinned EAS CLI before exposing credentials
+        run: npm install --global eas-cli@21.4.0
+
+      - name: Download pre-exported static update
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: ota-${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
+          path: publisher/dist
+
+      - name: Create trusted static publisher configuration
+        env:
+          EXPO_OWNER: ${{ vars.EXPO_OWNER }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+          EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
+          NATIVE_FINGERPRINT: ${{ needs.build.outputs.native_fingerprint }}
+          VERSION_NAME: ${{ fromJSON(needs.detect.outputs.matrix).include[0].version_name }}
+        run: node builder/scripts/eas-publisher.mjs publisher
+
+      - name: Publish static update without executing upstream source
+        working-directory: publisher
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
+          UPSTREAM_TAG: ${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
+        run: |
+          test -n "$EXPO_TOKEN"
+          test -f dist/metadata.json
+          eas update \
+            --input-dir dist \
+            --skip-bundler \
+            --channel "$UPDATE_CHANNEL" \
+            --platform android \
+            --environment production \
+            --message "T3 Code $UPSTREAM_TAG" \
+            --json \
+            --non-interactive > "$RUNNER_TEMP/eas-update.json"
+          node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' \
+            "$RUNNER_TEMP/eas-update.json"
+
+      - name: Record successfully processed nightly
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          UPSTREAM_TAG: ${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
+        run: node builder/scripts/record-processed.mjs
+
+      - name: Delete temporary Actions artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node builder/scripts/cleanup-run-artifacts.mjs
+
+  sign:
+    name: Sign native fallback APK
+    needs:
+      - detect
+      - build
+    if: needs.build.outputs.delivery == 'apk'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       ANDROID_BUILD_TOOLS_VERSION: "37.0.0"
-    strategy:
-      fail-fast: false
-      matrix:
-        release: ${{ fromJSON(needs.detect.outputs.matrix).include }}
     steps:
       - name: Check out trusted builder
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -185,7 +328,7 @@ jobs:
       - name: Download unsigned build
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
-          name: unsigned-${{ matrix.release.upstream_tag }}
+          name: unsigned-${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
           path: unsigned
 
       - name: Install pinned Android build tools
@@ -199,12 +342,15 @@ jobs:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-          UPSTREAM_TAG: ${{ matrix.release.upstream_tag }}
-          UPSTREAM_RELEASE_ID: ${{ matrix.release.upstream_release_id }}
-          UPSTREAM_PUBLISHED_AT: ${{ matrix.release.upstream_published_at }}
-          UPSTREAM_SHA: ${{ matrix.release.upstream_sha }}
-          VERSION_CODE: ${{ matrix.release.version_code }}
-          VERSION_NAME: ${{ matrix.release.version_name }}
+          UPSTREAM_TAG: ${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
+          UPSTREAM_RELEASE_ID: ${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_release_id }}
+          UPSTREAM_PUBLISHED_AT: ${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_published_at }}
+          UPSTREAM_SHA: ${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_sha }}
+          VERSION_CODE: ${{ fromJSON(needs.detect.outputs.matrix).include[0].version_code }}
+          VERSION_NAME: ${{ fromJSON(needs.detect.outputs.matrix).include[0].version_name }}
+          NATIVE_FINGERPRINT: ${{ needs.build.outputs.native_fingerprint }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+          EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
           EXPECTED_PACKAGE: dev.r3xsean.t3code.nightly
           EXPECTED_CERTIFICATE_SHA256: 3EAAE08EE4FA2F8A2D2A85FE359840267F6E022B1963C19A60768D96EE40578B
         run: |
@@ -242,20 +388,21 @@ jobs:
       - name: Upload verified build
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
-          name: companion-${{ matrix.release.upstream_tag }}
+          name: companion-${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
           path: |
-            t3code-nightly-${{ matrix.release.version_name }}.apk
-            t3code-nightly-${{ matrix.release.version_name }}.apk.sha256
-            t3code-nightly-${{ matrix.release.version_name }}.json
+            t3code-nightly-${{ fromJSON(needs.detect.outputs.matrix).include[0].version_name }}.apk
+            t3code-nightly-${{ fromJSON(needs.detect.outputs.matrix).include[0].version_name }}.apk.sha256
+            t3code-nightly-${{ fromJSON(needs.detect.outputs.matrix).include[0].version_name }}.json
           if-no-files-found: error
           retention-days: 3
 
-  publish:
-    name: Publish verified companions
+  publish-apk:
+    name: Publish native fallback APK
     needs:
       - detect
+      - build
       - sign
-    if: needs.detect.outputs.has_releases == 'true'
+    if: needs.build.outputs.delivery == 'apk'
     runs-on: ubuntu-24.04
     permissions:
       actions: write
@@ -264,7 +411,7 @@ jobs:
       ANDROID_BUILD_TOOLS_VERSION: "37.0.0"
       EXPECTED_CERTIFICATE_SHA256: 3EAAE08EE4FA2F8A2D2A85FE359840267F6E022B1963C19A60768D96EE40578B
     steps:
-      - name: Check out builder
+      - name: Check out trusted builder
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
@@ -298,17 +445,24 @@ jobs:
           output="$RUNNER_TEMP/publish-apksigner.txt"
           "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/apksigner" \
             verify --verbose --print-certs "${apks[0]}" > "$output"
-          actual="$(
-            node scripts/apk-certificate.mjs "$output"
-          )"
+          actual="$(node scripts/apk-certificate.mjs "$output")"
           test "$actual" = "$EXPECTED_CERTIFICATE_SHA256"
 
-      - name: Publish in upstream order
+      - name: Publish verified APK
         env:
           ARTIFACTS_DIRECTORY: ${{ github.workspace }}/artifacts
           GITHUB_TOKEN: ${{ github.token }}
           RELEASE_MATRIX: ${{ needs.detect.outputs.matrix }}
+          NATIVE_FINGERPRINT: ${{ needs.build.outputs.native_fingerprint }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+          EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
         run: node scripts/publish-releases.mjs
+
+      - name: Record successfully processed nightly
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          UPSTREAM_TAG: ${{ fromJSON(needs.detect.outputs.matrix).include[0].upstream_tag }}
+        run: node scripts/record-processed.mjs
 
       - name: Delete temporary Actions artifacts
         env:

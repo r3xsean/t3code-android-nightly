@@ -52,7 +52,52 @@ export function existingVersionCodes(releases) {
     .filter(Number.isInteger);
 }
 
-export function selectCandidates(upstreamReleases, downstreamReleases) {
+function marker(body, name, valuePattern) {
+  return body?.match(new RegExp(`<!-- ${name}: (${valuePattern}) -->`))?.[1];
+}
+
+export function latestNativeBase(releases) {
+  const bases = releases
+    .filter(
+      (release) =>
+        release?.draft === false &&
+        DOWNSTREAM_NIGHTLY_TAG.test(release?.tag_name ?? "") &&
+        marker(release.body, "expo-updates-enabled", "true") === "true",
+    )
+    .map((release) => {
+      const versionCode = marker(release.body, "android-version-code", "\\d+");
+      const fingerprint = marker(release.body, "native-fingerprint", "[0-9a-f]{40}");
+      const projectId = marker(
+        release.body,
+        "expo-project-id",
+        "[0-9a-fA-F-]{36}",
+      );
+      const channel = marker(
+        release.body,
+        "expo-update-channel",
+        "[A-Za-z0-9][A-Za-z0-9._-]{0,63}",
+      );
+      if (!versionCode || !fingerprint || !projectId || !channel) {
+        return null;
+      }
+      return {
+        version_code: Number.parseInt(versionCode, 10),
+        version_name: release.tag_name,
+        native_fingerprint: fingerprint,
+        expo_project_id: projectId,
+        expo_update_channel: channel,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.version_code - right.version_code);
+  return bases.at(-1) ?? null;
+}
+
+export function selectCandidates(
+  upstreamReleases,
+  downstreamReleases,
+  { processedTag } = {},
+) {
   const qualifying = upstreamReleases
     .filter(isQualifyingNightly)
     .map((release) => ({
@@ -94,7 +139,22 @@ export function selectCandidates(upstreamReleases, downstreamReleases) {
     throw new Error("Published companions contain colliding Android version codes");
   }
 
-  const floor = codes.length === 0 ? 0 : Math.max(...codes);
+  let processedCode = 0;
+  if (processedTag) {
+    const processed = qualifying.find(
+      (release) => release.tag_name === processedTag,
+    );
+    if (!processed) {
+      throw new Error(
+        `Recorded processed nightly is absent from fetched qualifying releases: ${processedTag}`,
+      );
+    }
+    processedCode = processed.version_code;
+  }
+  const floor = Math.max(
+    processedCode,
+    codes.length === 0 ? 0 : Math.max(...codes),
+  );
   const eligible = qualifying.filter(
     (release) =>
       release.version_code > floor &&

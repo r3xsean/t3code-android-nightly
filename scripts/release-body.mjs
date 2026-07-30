@@ -1,6 +1,10 @@
 export function releaseBody(item, certificateSha256) {
   return `<!-- android-version-code: ${item.version_code} -->
 <!-- upstream-release-id: ${item.upstream_release_id} -->
+<!-- native-fingerprint: ${item.native_fingerprint} -->
+<!-- expo-project-id: ${item.expo_project_id} -->
+<!-- expo-update-channel: ${item.expo_update_channel} -->
+<!-- expo-updates-enabled: true -->
 
 # Unofficial T3 Code Android nightly
 
@@ -14,6 +18,8 @@ Built automatically from the official T3 Code nightly
 | Android package | \`dev.r3xsean.t3code.nightly\` |
 | Android version name | \`${item.version_name}\` |
 | Android version code | \`${item.version_code}\` |
+| Native compatibility fingerprint | \`${item.native_fingerprint}\` |
+| Expo Updates channel | \`${item.expo_update_channel}\` |
 | Signing certificate SHA-256 | \`${certificateSha256}\` |
 
 Install and update through

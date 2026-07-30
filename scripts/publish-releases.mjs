@@ -100,6 +100,10 @@ export async function publishOne(
     metadataValue.abi !== "arm64-v8a" ||
     metadataValue.certificate_sha256 !== EXPECTED_CERTIFICATE_SHA256 ||
     metadataValue.apk_sha256 !== apkSha256 ||
+    metadataValue.native_fingerprint !== item.native_fingerprint ||
+    metadataValue.expo_project_id !== item.expo_project_id ||
+    metadataValue.expo_update_channel !== item.expo_update_channel ||
+    metadataValue.expo_updates_enabled !== true ||
     checksumValue.trim() !== expectedChecksumLine
   ) {
     throw new Error(`Artifact provenance mismatch for ${item.upstream_tag}`);
@@ -162,7 +166,12 @@ async function main() {
   }
 
   const api = githubApi(process.env.GITHUB_TOKEN);
-  const ordered = [...matrix.include].sort(
+  const ordered = matrix.include.map((item) => ({
+    ...item,
+    native_fingerprint: process.env.NATIVE_FINGERPRINT,
+    expo_project_id: process.env.EXPO_PROJECT_ID,
+    expo_update_channel: process.env.EXPO_UPDATE_CHANNEL,
+  })).sort(
     (left, right) => left.version_code - right.version_code,
   );
   for (const item of ordered) {

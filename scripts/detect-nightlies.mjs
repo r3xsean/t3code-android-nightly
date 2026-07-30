@@ -4,6 +4,7 @@ import { githubApi } from "./github-api.mjs";
 import {
   UPSTREAM_REPOSITORY,
   androidVersionName,
+  latestNativeBase,
   resolveCommitSha,
   selectCandidates,
 } from "./nightlies.mjs";
@@ -12,6 +13,7 @@ export async function detect({
   token,
   downstreamRepository,
   requestedTag,
+  processedTag,
 }) {
   if (!downstreamRepository?.includes("/")) {
     throw new Error("GITHUB_REPOSITORY must be owner/name");
@@ -25,7 +27,7 @@ export async function detect({
     `/repos/${downstreamRepository}/releases?per_page=100`,
   );
 
-  let candidates = selectCandidates(upstream, downstream);
+  let candidates = selectCandidates(upstream, downstream, { processedTag });
   if (requestedTag) {
     const requested = upstream.find(
       (release) => release.tag_name === requestedTag,
@@ -35,9 +37,24 @@ export async function detect({
         `Requested tag is not among the latest upstream releases: ${requestedTag}`,
       );
     }
-    candidates = selectCandidates([requested], downstream);
+    if (processedTag && !upstream.some((release) => release.tag_name === processedTag)) {
+      throw new Error(
+        `Recorded processed nightly is absent from fetched releases: ${processedTag}`,
+      );
+    }
+    candidates = selectCandidates(
+      processedTag
+        ? [
+            requested,
+            upstream.find((release) => release.tag_name === processedTag),
+          ]
+        : [requested],
+      downstream,
+      { processedTag },
+    );
   }
 
+  const nativeBase = latestNativeBase(downstream);
   const matrix = [];
   for (const release of candidates) {
     matrix.push({
@@ -47,6 +64,7 @@ export async function detect({
       upstream_sha: await resolveCommitSha(api, release.tag_name),
       version_code: release.version_code,
       version_name: androidVersionName(release.tag_name),
+      native_base: nativeBase,
     });
   }
 
@@ -58,6 +76,7 @@ async function main() {
     token: process.env.GITHUB_TOKEN,
     downstreamRepository: process.env.GITHUB_REPOSITORY,
     requestedTag: process.env.REQUESTED_UPSTREAM_TAG || undefined,
+    processedTag: process.env.LAST_PROCESSED_UPSTREAM_TAG || undefined,
   });
 
   const output = JSON.stringify({ include: matrix });

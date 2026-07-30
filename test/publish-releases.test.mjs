@@ -18,6 +18,9 @@ const item = {
   upstream_published_at: "2026-07-27T18:54:45Z",
   version_code: 1785178485,
   version_name: "0.0.29-nightly.20260727.922",
+  native_fingerprint: "5".repeat(40),
+  expo_project_id: "11111111-2222-4333-8444-555555555555",
+  expo_update_channel: "nightly",
 };
 
 async function artifacts() {
@@ -45,6 +48,10 @@ async function artifacts() {
       abi: "arm64-v8a",
       certificate_sha256: EXPECTED_CERTIFICATE_SHA256,
       apk_sha256: apkSha256,
+      native_fingerprint: item.native_fingerprint,
+      expo_project_id: item.expo_project_id,
+      expo_update_channel: item.expo_update_channel,
+      expo_updates_enabled: true,
     }),
   );
   return directory;
