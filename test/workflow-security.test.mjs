@@ -36,6 +36,11 @@ test("trusted OTA publisher checks out only the builder and executes a locked CL
   assert.doesNotMatch(publish, /GITHUB_TOKEN/);
   assert.match(publish, /DISABLE_EAS_ANALYTICS:\s*"1"/);
   assert.match(publish, /EAS_CLI_SENTRY_DSN:\s*""/);
+  assert.match(publish, /EAS_NO_VCS:\s*"1"/);
+  assert.match(
+    publish,
+    /EAS_PROJECT_ROOT:\s*\$\{\{ github\.workspace \}\}\/publisher/,
+  );
 });
 
 test("OTA state recording uses a fresh job without the Expo token or EAS tree", async () => {
