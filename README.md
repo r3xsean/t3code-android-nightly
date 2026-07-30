@@ -64,12 +64,11 @@ upstream source.
 
 The local macOS LaunchAgent polls every five minutes while the Mac is online and
 dispatches the workflow for a newer official nightly. It lives outside the T3
-Code application, so desktop nightly updates and reboots do not replace it. A
-failed nightly is attempted no more than three times; after that, the dispatcher
-waits for a newer nightly instead of creating an endless retry loop.
-
-A monthly marker commit keeps GitHub from disabling this public repository's
-scheduled workflow after 60 days without repository activity.
+Code application, so desktop nightly updates and reboots do not replace it.
+GitHub Actions does no idle scheduled polling; a runner starts only after the
+Mac finds a new nightly. A failed nightly is attempted no more than three times;
+after that, the dispatcher waits for a newer nightly instead of creating an
+endless retry loop.
 
 The signing key is not stored in this repository.
 The expected public certificate fingerprint is recorded in

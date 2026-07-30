@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 
 function job(workflow, name, nextName) {
   const start = workflow.indexOf(`\n  ${name}:`);
@@ -50,4 +50,11 @@ test("native fingerprinting uses a fixed neutral version, not the previous APK v
   const build = job(workflow, "build", "publish-ota");
   assert.match(build, /prepare-source\.mjs fingerprint source/);
   assert.doesNotMatch(build, /native_base\.version_(?:code|name)/);
+});
+
+test("only the Mac dispatcher starts builds, so GitHub does no idle polling", async () => {
+  const workflow = await readFile(".github/workflows/android-nightly.yml", "utf8");
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /^\s*schedule:/m);
+  await assert.rejects(access(".github/workflows/keepalive.yml"), /ENOENT/);
 });
