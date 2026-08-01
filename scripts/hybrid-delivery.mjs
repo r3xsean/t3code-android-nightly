@@ -44,7 +44,20 @@ export function chooseDelivery(
   if (nativeBase.expo_update_channel !== expected.updateChannel) {
     throw new Error("Native base belongs to a different Expo update channel");
   }
+  if (expected.forceNative === true) {
+    return "apk";
+  }
   return nativeBase.native_fingerprint === candidateFingerprint ? "ota" : "apk";
+}
+
+function forceNativeRecoveryFromEnv(value) {
+  if (value === undefined || value === "" || value === "false") {
+    return false;
+  }
+  if (value === "true") {
+    return true;
+  }
+  throw new Error("FORCE_NATIVE_RECOVERY must be true or false");
 }
 
 async function main() {
@@ -61,6 +74,9 @@ async function main() {
   const delivery = chooseDelivery(fingerprint, nativeBase, {
     expoProjectId: process.env.EXPO_PROJECT_ID,
     updateChannel: process.env.EXPO_UPDATE_CHANNEL,
+    forceNative: forceNativeRecoveryFromEnv(
+      process.env.FORCE_NATIVE_RECOVERY,
+    ),
   });
   const lines = `delivery=${delivery}\nnative_fingerprint=${fingerprint}\n`;
   if (process.env.GITHUB_OUTPUT) {

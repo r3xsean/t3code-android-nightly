@@ -53,6 +53,8 @@ test("turns upstream config into an OTA-enabled companion identity", () => {
     /url: "https:\/\/u\.expo\.dev\/11111111-2222-4333-8444-555555555555"/,
   );
   assert.match(prepared, /"expo-channel-name": "nightly"/);
+  assert.match(prepared, /checkAutomatically: "NEVER"/);
+  assert.doesNotMatch(prepared, /checkAutomatically: "ON_LOAD"/);
   assert.match(prepared, /package: "dev\.r3xsean\.t3code\.nightly"/);
   assert.match(prepared, /versionCode: 1785178485/);
   assert.match(

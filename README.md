@@ -28,10 +28,11 @@ This build targets 64-bit ARM Android phones (`arm64-v8a`).
 3. Confirm the detected GitHub source, then tap **Add** and **Install**.
 4. Allow Obtainium to install unknown apps when Android prompts.
 
-After the OTA-enabled bootstrap APK, the app checks for compatible Expo updates
-when it launches, which contacts Expo with the companion project, runtime,
-channel, and installation identifiers. A downloaded update is applied on the
-next reload. When a
+After the OTA-enabled bootstrap APK, T3's in-app launch check downloads and
+reloads compatible Expo updates. Expo's additional native launch downloader is
+disabled to prevent two Android downloads racing each other. The check contacts
+Expo with the companion project, runtime, channel, and installation identifiers.
+When a
 nightly changes native Android code or dependencies, the automation publishes a
 new signed APK instead; Obtainium then provides the Android update prompt.
 Companion APKs are normal GitHub releases, so prerelease inclusion is not

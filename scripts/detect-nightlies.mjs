@@ -14,6 +14,7 @@ export async function detect({
   token,
   downstreamRepository,
   requestedTag,
+  forceNativeRecovery = false,
 }) {
   if (!downstreamRepository?.includes("/")) {
     throw new Error("GITHUB_REPOSITORY must be owner/name");
@@ -28,6 +29,10 @@ export async function detect({
   );
   const processedTag = await readProcessedTag(api, downstreamRepository);
 
+  if (forceNativeRecovery && !requestedTag) {
+    throw new Error("Native recovery requires an exact upstream tag");
+  }
+
   let candidates = selectCandidates(upstream, downstream, { processedTag });
   if (requestedTag) {
     const requested = upstream.find(
@@ -38,7 +43,11 @@ export async function detect({
         `Requested tag is not among the latest upstream releases: ${requestedTag}`,
       );
     }
-    candidates = selectCandidates([requested], downstream, { processedTag });
+    candidates = selectCandidates(
+      [requested],
+      downstream,
+      forceNativeRecovery ? {} : { processedTag },
+    );
   }
 
   const nativeBase = latestNativeBase(downstream);
@@ -63,6 +72,7 @@ async function main() {
     token: process.env.GITHUB_TOKEN,
     downstreamRepository: process.env.GITHUB_REPOSITORY,
     requestedTag: process.env.REQUESTED_UPSTREAM_TAG || undefined,
+    forceNativeRecovery: process.env.FORCE_NATIVE_RECOVERY === "true",
   });
 
   const output = JSON.stringify({ include: matrix });

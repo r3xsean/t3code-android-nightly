@@ -81,6 +81,12 @@ export function prepareConfig(
   );
   prepared = replaceExactlyOnce(
     prepared,
+    '    checkAutomatically: "ON_LOAD",\n',
+    '    checkAutomatically: "NEVER",\n',
+    "Expo automatic update mode",
+  );
+  prepared = replaceExactlyOnce(
+    prepared,
     "    package: variant.androidPackage,\n",
     `    package: "${APPLICATION_ID}",\n    versionCode: ${versionCode},\n`,
     "Android identity",

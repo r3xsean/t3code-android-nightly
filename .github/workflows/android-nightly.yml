@@ -7,6 +7,11 @@ on:
         description: "Optional exact unpublished newer upstream nightly tag"
         required: false
         type: string
+      force_native_recovery:
+        description: "Rebuild the exact requested tag as an APK, even if OTA processing already completed"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: android-nightly-companion
@@ -41,6 +46,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           REQUESTED_UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+          FORCE_NATIVE_RECOVERY: ${{ inputs.force_native_recovery }}
         run: node scripts/detect-nightlies.mjs
 
   build:
@@ -125,6 +131,7 @@ jobs:
           EXPO_OWNER: ${{ vars.EXPO_OWNER }}
           EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
           EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
+          FORCE_NATIVE_RECOVERY: ${{ inputs.force_native_recovery }}
           NATIVE_BASE_JSON: ${{ toJSON(matrix.release.native_base) }}
         run: |
           vp exec fingerprint fingerprint:generate \

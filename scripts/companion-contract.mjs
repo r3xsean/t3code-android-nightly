@@ -76,7 +76,10 @@ export function companionExpoConfig({
       requestHeaders: {
         "expo-channel-name": updateChannel,
       },
-      checkAutomatically: "ON_LOAD",
+      // T3's JavaScript launch check already downloads and reloads updates.
+      // Leaving Expo's native ON_LOAD downloader enabled races that same fetch
+      // on Android and can surface a generic "Failed to download new update".
+      checkAutomatically: "NEVER",
       fallbackToCacheTimeout: 0,
     },
     android: {

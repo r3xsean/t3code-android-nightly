@@ -22,7 +22,7 @@ const config = {
     enabled: true,
     url: `https://u.expo.dev/${expected.expoProjectId}`,
     requestHeaders: { "expo-channel-name": "nightly" },
-    checkAutomatically: "ON_LOAD",
+    checkAutomatically: "NEVER",
     fallbackToCacheTimeout: 0,
   },
   android: { package: "dev.r3xsean.t3code.nightly" },

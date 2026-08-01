@@ -36,6 +36,17 @@ test("changed fingerprints and missing bases choose an APK", () => {
   assert.equal(chooseDelivery(fingerprint, null), "apk");
 });
 
+test("an explicit recovery request forces a native APK", () => {
+  assert.equal(
+    chooseDelivery(fingerprint, nativeBase, {
+      expoProjectId: nativeBase.expo_project_id,
+      updateChannel: nativeBase.expo_update_channel,
+      forceNative: true,
+    }),
+    "apk",
+  );
+});
+
 test("rejects a native base from another Expo project or channel", () => {
   assert.throws(
     () =>

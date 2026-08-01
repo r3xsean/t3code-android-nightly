@@ -19,8 +19,9 @@ compatibility changes.
 - While the Mac is online, a persistent five-minute dispatcher starts processing
   the newest qualifying upstream nightly without depending on T3 Code itself.
 - A compatible JavaScript-only nightly is published to the private companion's
-  Expo Updates channel. The app checks for it at launch and applies it on the
-  next reload.
+  Expo Updates channel. T3's JavaScript launch check downloads and reloads it;
+  Expo's separate native `ON_LOAD` downloader remains disabled so Android never
+  races two fetches for the same update.
 - A nightly with a changed Android native fingerprint is built and published as
   a signed APK. Obtainium notices the newer release and offers an in-place
   Android update.
@@ -94,6 +95,10 @@ project, channel, runtime, and installation identifiers.
 - Attempt one upstream nightly at most three times. If all attempts fail, wait
   for a newer nightly rather than repeatedly exercising credential-bearing
   publication jobs.
+- A manually dispatched native recovery may rebuild one exact immutable
+  upstream tag that OTA processing already recorded, but only when the caller
+  supplies both the tag and the explicit recovery flag. Normal unattended
+  detection never reprocesses recorded tags.
 
 ## Automation decision
 
