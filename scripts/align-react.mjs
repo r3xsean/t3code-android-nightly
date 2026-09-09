@@ -1,26 +1,10 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 
-const RENDERER_RELATIVE_PATH = path.join(
-  "apps",
-  "mobile",
-  "node_modules",
-  "react-native",
-  "Libraries",
-  "Renderer",
-  "implementations",
-  "ReactNativeRenderer-prod.js",
-);
 const MOBILE_PACKAGE_RELATIVE_PATH = path.join(
   "apps",
   "mobile",
-  "package.json",
-);
-const INSTALLED_REACT_RELATIVE_PATH = path.join(
-  "apps",
-  "mobile",
-  "node_modules",
-  "react",
   "package.json",
 );
 
@@ -30,12 +14,34 @@ export function readRendererReactVersion(rendererSource) {
       /if\s*\(\s*"(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)"\s*!==\s*isomorphicReactPackageVersion\s*\)/g,
     ),
   ];
-  if (matches.length !== 1) {
+  const metadata = [...rendererSource.matchAll(
+    /version:\s*["'](\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)["']\s*,\s*rendererPackageName:\s*["']react-native-renderer["']/g,
+  )];
+  const versions = [...matches, ...metadata].map((match) => match[1]);
+  if (versions.length === 0 || matches.length > 1 || metadata.length > 1 || new Set(versions).size !== 1) {
     throw new Error(
-      "Expected exactly one React version compatibility guard in the React Native renderer",
+      "Expected an unambiguous React version compatibility guard or renderer metadata in the React Native renderer",
     );
   }
-  return matches[0][1];
+  return versions[0];
+}
+
+export async function installedRendererVersion(packagePath) {
+  const require = createRequire(path.resolve(packagePath));
+  const nativePackagePath = require.resolve("react-native/package.json");
+  const nativePackage = JSON.parse(await readFile(nativePackagePath, "utf8"));
+  const directory = path.join(path.dirname(nativePackagePath), "Libraries", "Renderer", "implementations");
+  const names = (await readdir(directory)).filter((name) => /^React.*-prod\.js$/.test(name)).sort();
+  if (!names.length) throw new Error(`React Native ${nativePackage.version}: no production renderers found in ${directory}`);
+  const versions = await Promise.all(names.map(async (name) => {
+    try {
+      return readRendererReactVersion(await readFile(path.join(directory, name), "utf8"));
+    } catch (error) {
+      throw new Error(`React Native ${nativePackage.version}, ${name}: ${error.message}`);
+    }
+  }));
+  if (new Set(versions).size !== 1) throw new Error(`React Native ${nativePackage.version}: conflicting renderer React versions: ${versions.join(", ")}`);
+  return versions[0];
 }
 
 export function alignMobileReactDependencies(packageJson, rendererVersion) {
@@ -57,18 +63,14 @@ async function main() {
     throw new Error("Usage: align-react.mjs <source-root> [--check]");
   }
 
-  const rendererSource = await readFile(
-    path.join(sourceRoot, RENDERER_RELATIVE_PATH),
-    "utf8",
-  );
-  const rendererVersion = readRendererReactVersion(rendererSource);
   const packagePath = path.join(sourceRoot, MOBILE_PACKAGE_RELATIVE_PATH);
+  const rendererVersion = await installedRendererVersion(packagePath);
   const packageJson = JSON.parse(await readFile(packagePath, "utf8"));
 
   if (mode === "--check") {
     const installedReact = JSON.parse(
       await readFile(
-        path.join(sourceRoot, INSTALLED_REACT_RELATIVE_PATH),
+        createRequire(path.resolve(packagePath)).resolve("react/package.json"),
         "utf8",
       ),
     );

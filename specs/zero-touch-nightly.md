@@ -173,6 +173,19 @@ Blocked by: T1, T2, T3.
 
 ## Implementation Notes
 
+- September 9 recovery: renderer alignment discovers installed production
+  renderers through Node package resolution, supports both legacy compatibility
+  guards and Fabric renderer metadata, and requires all discovered versions to
+  agree. Missing/ambiguous evidence still fails before publication. Regression
+  scenarios cover Fabric-only RN 0.86, hoisted packages, legacy renderers, and
+  conflicting metadata. Reinstallation uses the upstream-selected package
+  manager through Vite+ rather than a separately pinned pnpm version.
+- Recovery acceptance: a current immutable upstream nightly must pass the live
+  build and persistent signing checks and be published as an installable APK.
+  A delivery health check must detect failed builds and prolonged lag, maintain
+  one visible incident, and resolve it only after delivery catches up. It must
+  run independently of the Mac dispatcher so an offline Mac is detectable.
+
 - Native delivery selection is a mechanical seam: compare the generated Android
   fingerprint to the latest published OTA-enabled native base. Generate every
   fingerprint from the same neutral version name and code.
