@@ -67,10 +67,42 @@ disabled in the token-bearing publication step.
 The local macOS LaunchAgent polls every five minutes while the Mac is online and
 dispatches the workflow for a newer official nightly. It lives outside the T3
 Code application, so desktop nightly updates and reboots do not replace it.
-GitHub Actions does no idle scheduled polling; a runner starts only after the
-Mac finds a new nightly. A failed nightly is attempted no more than three times;
+Build runners start after the Mac finds a new nightly. A failed nightly is attempted no more than three times;
 after that, the dispatcher waits for a newer nightly instead of creating an
 endless retry loop.
+
+## Automatic recovery
+
+A separate Mac LaunchAgent checks every 15 minutes for failed or overdue
+delivery. It uses the signed-in Codex CLI with **GPT-6 Astra, high effort** to
+investigate in a disposable checkout and propose a repair. The agent can change
+any builder file, dependencies, build logic, or upstream adaptations; there is
+no compatibility-file allowlist. A second Astra session reviews the proposal.
+
+GitHub then runs `Verify Android repair` from the pre-repair main commit, tests
+the candidate against the original regression suite plus new tests, compiles
+an APK, and verifies its package/version, architecture, Expo configuration, and
+T3 Connect configuration in a fresh job. Candidate workflow changes cannot
+alter that verification run. Only that exact verified commit can fast-forward
+main, after which normal signed publication is dispatched. A main-branch
+change during verification requires another attempt rather than a stale merge.
+
+Install the worker with `bash scripts/install-dispatcher.sh repair`. Its
+dedicated runner clone refreshes on each tick without touching a working
+checkout. Attempts are limited to two per 24 hours and two per upstream tag;
+each agent session has a 30-minute timeout. State, diagnosis, and pending build
+information survive restarts under
+`~/Library/Application Support/T3CodeNightly/`. The Mac must be awake and Codex
+must remain signed in with usage available. Repaired source is verified and
+built on GitHub, where signing and Expo credentials already live.
+
+`Android delivery health` also runs independently on GitHub after main builds
+and every six hours. It opens one recovery issue after a failed build or six
+hours of undelivered nightlies, updates it without creating duplicate issues,
+and closes it when the delivered state catches up. This also detects an offline
+Mac. Automatic repair cannot guarantee recovery from every future upstream
+change; a failed repair leaves the last working release available and the
+incident open.
 
 The signing key is not stored in this repository.
 The expected public certificate fingerprint is recorded in

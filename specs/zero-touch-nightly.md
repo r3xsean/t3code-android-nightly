@@ -173,6 +173,21 @@ Blocked by: T1, T2, T3.
 
 ## Implementation Notes
 
+- September 9 automatic-repair authorization: Sean explicitly chose automatic
+  publication of verified repairs, then removed the proposed file allowlist.
+  GPT-6 Astra at high effort may propose changes throughout the builder.
+  Verification stays independent: the pre-repair main workflow and tests judge
+  the exact candidate, compile a real APK, and inspect its resulting identity,
+  native architecture, Expo runtime/channel, and Connect configuration in a
+  separate runner. A separate agent reviews the proposal. Only a successful
+  verification permits fast-forward promotion and normal signed publication.
+- Repair instructions have three intents: investigate the failed delivery with
+  full builder/upstream context; produce a coherent patch anywhere in the
+  builder; return a diagnosis when no working patch is possible. This replaces
+  the initial renderer-only prompt and policy, which Sean rejected as too
+  restrictive. The controller owns scheduling, retries, verification, and
+  publication rather than relying on agent-written completion claims.
+
 - September 9 recovery: renderer alignment discovers installed production
   renderers through Node package resolution, supports both legacy compatibility
   guards and Fabric renderer metadata, and requires all discovered versions to

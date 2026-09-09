@@ -1,0 +1,148 @@
+name: Verify Android repair
+run-name: Verify repair ${{ inputs.candidate_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        required: true
+        type: string
+      base_sha:
+        required: true
+        type: string
+      upstream_tag:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-independent-repair-verification
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve immutable repair inputs
+    runs-on: ubuntu-24.04
+    outputs:
+      upstream_sha: ${{ steps.inputs.outputs.upstream_sha }}
+      version_code: ${{ steps.inputs.outputs.version_code }}
+      version_name: ${{ steps.inputs.outputs.version_name }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - id: inputs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+        run: node scripts/verify-repair-inputs.mjs
+
+  build:
+    name: Build candidate APK
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out independent verification baseline
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: trusted
+          persist-credentials: false
+      - name: Check out candidate without credentials
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Run baseline and candidate regression tests
+        run: |
+          cp -R trusted/test/. candidate/test/
+          cd candidate
+          node --test
+      - name: Check out immutable upstream source
+        env:
+          UPSTREAM_SHA: ${{ needs.resolve.outputs.upstream_sha }}
+        run: |
+          mkdir source
+          git -C source init
+          git -C source fetch --depth=1 https://github.com/pingdotgg/t3code.git "$UPSTREAM_SHA"
+          git -C source checkout --detach FETCH_HEAD
+          test "$(git -C source rev-parse HEAD)" = "$UPSTREAM_SHA"
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
+        with:
+          working-directory: source
+          node-version-file: package.json
+          cache: true
+          run-install: false
+      - name: Compile release APK
+        env:
+          APP_VARIANT: preview
+          CI: '1'
+          EXPO_NO_GIT_STATUS: '1'
+          EXPO_OWNER: ${{ vars.EXPO_OWNER }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+          EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
+          T3CODE_CLERK_PUBLISHABLE_KEY: ${{ vars.T3CODE_CLERK_PUBLISHABLE_KEY }}
+          T3CODE_CLERK_JWT_TEMPLATE: ${{ vars.T3CODE_CLERK_JWT_TEMPLATE }}
+          T3CODE_RELAY_URL: ${{ vars.T3CODE_RELAY_URL }}
+          VERSION_CODE: ${{ needs.resolve.outputs.version_code }}
+          VERSION_NAME: ${{ needs.resolve.outputs.version_name }}
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+        run: bash candidate/scripts/build-repair.sh "$GITHUB_WORKSPACE/source" "$GITHUB_WORKSPACE/repair-artifact"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: repair-candidate
+          path: repair-artifact
+          if-no-files-found: error
+          retention-days: 3
+
+  verify:
+    name: Verify candidate artifact
+    needs: [resolve, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out independent verifier only
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: repair-candidate
+          path: artifact
+      - name: Verify APK and companion configuration independently
+        env:
+          VERSION_CODE: ${{ needs.resolve.outputs.version_code }}
+          VERSION_NAME: ${{ needs.resolve.outputs.version_name }}
+          EXPO_OWNER: ${{ vars.EXPO_OWNER }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+          EXPO_UPDATE_CHANNEL: ${{ vars.EXPO_UPDATE_CHANNEL }}
+          T3CODE_CLERK_PUBLISHABLE_KEY: ${{ vars.T3CODE_CLERK_PUBLISHABLE_KEY }}
+          T3CODE_CLERK_JWT_TEMPLATE: ${{ vars.T3CODE_CLERK_JWT_TEMPLATE }}
+          T3CODE_RELAY_URL: ${{ vars.T3CODE_RELAY_URL }}
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;37.0.0'
+          "$ANDROID_HOME/build-tools/37.0.0/aapt2" dump badging artifact/app.apk > artifact/badging.txt
+          node scripts/verify-repair-artifact.mjs artifact
+          sha256sum artifact/app.apk

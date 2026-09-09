@@ -5,6 +5,13 @@ label="dev.r3xsean.t3code-nightly-dispatch"
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repository_dir="$(cd -- "$script_dir/.." && pwd)"
 template="$repository_dir/launchd/$label.plist"
+mode="${1:-dispatch}"
+if [[ "$mode" == "repair" ]]; then
+  label="dev.r3xsean.t3code-nightly-repair"
+elif [[ "$mode" != "dispatch" ]]; then
+  echo 'Usage: install-dispatcher.sh [dispatch|repair]' >&2
+  exit 1
+fi
 node_path="$(command -v node)"
 gh_path="$(command -v gh)"
 user_home="${HOME:?}"
@@ -12,6 +19,10 @@ launch_agents_dir="$user_home/Library/LaunchAgents"
 logs_dir="$user_home/Library/Logs"
 target="$launch_agents_dir/$label.plist"
 dispatcher="$repository_dir/scripts/dispatch-nightly.mjs"
+if [[ "$mode" == "repair" ]]; then
+  dispatcher="$repository_dir/scripts/run-repair.sh"
+  node_path="/bin/bash"
+fi
 stdout_path="$logs_dir/$label.log"
 stderr_path="$logs_dir/$label.error.log"
 domain="gui/$(id -u)"
@@ -30,6 +41,10 @@ esac
 
 mkdir -p "$launch_agents_dir" "$logs_dir"
 cp "$template" "$temporary"
+/usr/libexec/PlistBuddy -c "Set :Label $label" "$temporary"
+if [[ "$mode" == "repair" ]]; then
+  /usr/libexec/PlistBuddy -c 'Set :StartInterval 900' "$temporary"
+fi
 /usr/libexec/PlistBuddy -c "Set :ProgramArguments:0 $node_path" "$temporary"
 /usr/libexec/PlistBuddy -c "Set :ProgramArguments:1 $dispatcher" "$temporary"
 /usr/libexec/PlistBuddy -c "Set :WorkingDirectory $repository_dir" "$temporary"
@@ -41,6 +56,13 @@ plutil -lint "$temporary"
 if [[ "${DISPATCHER_CHECK_ONLY:-0}" == "1" ]]; then
   plutil -p "$temporary"
   exit 0
+fi
+if [[ "$mode" == "repair" ]]; then
+  runner_dir="$user_home/Library/Application Support/T3CodeNightly/repair-runner"
+  if [[ ! -d "$runner_dir" ]]; then
+    git clone --branch main --single-branch --no-tags https://github.com/r3xsean/t3code-android-nightly.git "$runner_dir"
+  fi
+  test -d "$runner_dir/.git"
 fi
 install -m 600 "$temporary" "$target"
 

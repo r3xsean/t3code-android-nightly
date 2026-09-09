@@ -1,0 +1,36 @@
+name: Android delivery health
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Android nightly companion]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '23 */6 * * *'
+
+concurrency:
+  group: android-delivery-health
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  health:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Check delivery and maintain one recovery incident
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/delivery-health.mjs

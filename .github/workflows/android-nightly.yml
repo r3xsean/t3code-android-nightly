@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      verify_only:
+        description: "Build a repair candidate without signing, publishing, or advancing delivery state"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: android-nightly-companion
@@ -86,6 +91,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+
+      - name: Adapt upstream source before dependency installation
+        run: node builder/scripts/upstream-compat.mjs source
 
       - name: Set up Vite+
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb
@@ -232,7 +240,7 @@ jobs:
     needs:
       - detect
       - build
-    if: needs.build.outputs.delivery == 'ota'
+    if: needs.build.outputs.delivery == 'ota' && !inputs.verify_only && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -303,7 +311,7 @@ jobs:
       - detect
       - build
       - publish-ota
-    if: needs.build.outputs.delivery == 'ota' && needs.publish-ota.result == 'success'
+    if: needs.build.outputs.delivery == 'ota' && needs.publish-ota.result == 'success' && !inputs.verify_only && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -336,7 +344,7 @@ jobs:
     needs:
       - detect
       - build
-    if: needs.build.outputs.delivery == 'apk'
+    if: needs.build.outputs.delivery == 'apk' && !inputs.verify_only && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -431,7 +439,7 @@ jobs:
       - detect
       - build
       - sign
-    if: needs.build.outputs.delivery == 'apk'
+    if: needs.build.outputs.delivery == 'apk' && !inputs.verify_only && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

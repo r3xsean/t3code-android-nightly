@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "status": { "type": "string", "enum": ["patch", "blocked"] },
+    "summary": { "type": "string" },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "content": { "type": ["string", "null"] }
+        },
+        "required": ["path", "content"]
+      }
+    }
+  },
+  "required": ["status", "summary", "files"]
+}
