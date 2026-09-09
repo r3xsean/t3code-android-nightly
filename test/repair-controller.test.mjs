@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { reconcile } from "../scripts/repair-nightly.mjs";
+import { isMainModule, reconcile } from "../scripts/repair-nightly.mjs";
+
+test("the installed Mac worker starts from Application Support paths containing spaces", () => {
+  assert.equal(isMainModule("file:///Users/sean/Library/Application%20Support/T3CodeNightly/repair-runner/scripts/repair-nightly.mjs", "/Users/sean/Library/Application Support/T3CodeNightly/repair-runner/scripts/repair-nightly.mjs"), true);
+  assert.equal(isMainModule("file:///tmp/worker.mjs", "/tmp/importer.mjs"), false);
+  assert.equal(isMainModule("file:///tmp/worker.mjs", undefined), false);
+});
 
 function fixture({ conclusion = "success", currentMain = "base", running = false } = {}) {
   const calls = [];

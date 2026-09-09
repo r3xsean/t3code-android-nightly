@@ -1,6 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, mkdtemp, readFile, writeFile, unlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile, unlink, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
@@ -22,7 +22,7 @@ async function gh(args) {
   return (await exec(ghPath, args, { maxBuffer: 8 * 1024 * 1024, timeout: 60_000 })).stdout;
 }
 async function content(api, repository, name, ref) {
-  const file = await api(`/repos/${repository}/contents/${name}?ref=${encodeURIComponent(ref)}`);
+  const file = await api(`/repos/${repository}/contents/${name.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(ref)}`);
   if (file.type !== "file" || file.encoding !== "base64") throw new Error(`Expected regular file ${name}`);
   return Buffer.from(file.content, "base64").toString("utf8");
 }
@@ -67,6 +67,7 @@ export async function runAgent(directory, name, prompt, schemaName) {
 }
 
 async function prepareProposal(api, health, base, directory, state) {
+  try {
   const upstreamSha = await resolveCommitSha(api, health.latest);
   for (const [name, repository, sha] of [["builder", REPOSITORY, base], ["upstream", "pingdotgg/t3code", upstreamSha]]) {
     const checkout = path.join(directory, name);
@@ -79,7 +80,7 @@ async function prepareProposal(api, health, base, directory, state) {
   const evidence = {
     base, upstreamSha, tag: health.latest, mobilePackage,
     failureLog: (await gh(["run", "view", String(health.run.id), "--repo", REPOSITORY, "--log-failed"])).slice(-100_000),
-    rendererEvidence: await rendererEvidence(mobilePackage, directory),
+    rendererEvidence: await rendererEvidence(mobilePackage, directory).catch((error) => ({ unavailable: error.message })),
     previousAttempt: state.lastFailedCandidate ?? null,
     previousError: state.lastError ?? null,
   };
@@ -101,6 +102,10 @@ async function prepareProposal(api, health, base, directory, state) {
   const review = await runAgent(directory, "review", `${reviewPrompt}\n${JSON.stringify({ evidence, proposal })}`, "repair-review.schema.json");
   if (review.approved !== true) throw new Error(`Repair review rejected: ${review.reason}`);
   return { files, summary: proposal.summary };
+  } finally {
+    // These are disposable checkouts created by this invocation, not working repos.
+    await Promise.all(["builder", "upstream"].map((name) => rm(path.join(directory, name), { recursive: true, force: true })));
+  }
 }
 
 async function candidateCommit(api, base, files, tag) {
@@ -132,6 +137,7 @@ export async function reconcile(api, state, save = (value) => writeState(statePa
     if (!dispatched) await api(`${root}/actions/workflows/android-nightly.yml/dispatches`, { method: "POST", body: JSON.stringify({ ref: "main", inputs: { upstream_tag: pending.tag } }) });
     state.lastResult = `Promoted verified repair ${pending.sha}; publication dispatched for ${pending.tag}`;
     state.lastError = null;
+    state.lastFailureAt = null;
     state.pending = null;
     await save(state);
     return;
@@ -210,6 +216,7 @@ async function main() {
   } catch (error) {
     if (!stateLoaded) throw error;
     state.lastError = `${new Date().toISOString()} ${error.message}`;
+    state.lastFailureAt = Date.now();
     const retryable = error instanceof TypeError || error.status >= 500 || error.status === 429;
     if (state.pending && !retryable) {
       state.lastFailedCandidate = state.pending;
@@ -227,4 +234,8 @@ async function main() {
   } finally { await unlink(lock); }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+export function isMainModule(moduleUrl, entryPath) {
+  return Boolean(entryPath) && fileURLToPath(moduleUrl) === path.resolve(entryPath);
+}
+
+if (isMainModule(import.meta.url, process.argv[1])) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

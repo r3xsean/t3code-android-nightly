@@ -12,11 +12,11 @@ test("both repair and review explicitly select GPT-6 Astra at high effort", () =
   assert.equal(REPAIR_MODEL, "gpt-6-astra");
   assert.equal(REPAIR_EFFORT, "high");
 });
-test("daily and per-nightly budgets stop repeated agent spending", () => {
+test("failed repairs retry with backoff without a permanent daily or per-nightly cutoff", () => {
   const health = { unhealthy: true, latest: "nightly" };
   assert.equal(repairDecision(health, {}, 1000), "repair");
-  assert.equal(repairDecision(health, { attempts: [{ at: 900, tag: "a" }, { at: 950, tag: "b" }] }, 1000), "budget-exhausted");
-  assert.equal(repairDecision(health, { attempts: [{ at: 0, tag: "nightly" }, { at: 0, tag: "nightly" }] }, 100_000_000), "tag-exhausted");
+  assert.equal(repairDecision(health, { attempts: [{ at: 900, tag: "a" }, { at: 950, tag: "b" }], lastFailureAt: 999 }, 1000), "backoff");
+  assert.equal(repairDecision(health, { attempts: Array.from({ length: 20 }, () => ({ at: 1, tag: "nightly" })), lastFailureAt: 1 }, 100_000_000), "repair");
   assert.equal(repairDecision({ ...health, current: true }, {}, 1000), "idle");
   assert.equal(repairDecision(health, { pending: {} }, 1000), "verify");
 });

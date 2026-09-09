@@ -1,9 +1,8 @@
 export const REPAIR_MODEL = "gpt-6-astra";
 export const REPAIR_EFFORT = "high";
-export const MAX_DAILY_REPAIRS = 2;
 
 export function validRepositoryPath(value) {
-  return typeof value === "string" && /^[A-Za-z0-9_.\/-]+$/.test(value) && !value.startsWith("/") && value.split("/").every((part) => part && part !== "." && part !== ".." && part !== ".git");
+  return typeof value === "string" && !value.startsWith("/") && !value.includes("\\") && !value.includes("\0") && value.split("/").every((part) => part && part !== "." && part !== ".." && part.toLowerCase() !== ".git");
 }
 
 export function validateProposal(proposal, originals) {
@@ -14,7 +13,7 @@ export function validateProposal(proposal, originals) {
     if (!validRepositoryPath(file.path) || seen.has(file.path)) throw new Error(`Invalid or duplicate repository path: ${file.path}`);
     seen.add(file.path);
     if (file.content !== null && (typeof file.content !== "string" || Buffer.byteLength(file.content) > 2_000_000)) throw new Error("Invalid repair content");
-    if (file.content === originals[file.path]) throw new Error("Repair did not change the compatibility adapter");
+    if (file.content === originals[file.path]) throw new Error(`Repair did not change ${file.path}`);
   }
   return proposal.files;
 }
@@ -23,8 +22,9 @@ export function repairDecision(health, state, now = Date.now()) {
   if (state.pending) return "verify";
   if (health.current || health.active || !health.unhealthy) return "idle";
   const attempts = state.attempts ?? [];
-  if (attempts.filter((a) => now - a.at < 86_400_000).length >= MAX_DAILY_REPAIRS) return "budget-exhausted";
-  if (attempts.filter((a) => a.tag === health.latest).length >= 2) return "tag-exhausted";
+  const attemptsForTag = attempts.filter((a) => a.tag === health.latest).length;
+  const delay = Math.min(6 * 60 * 60_000, 15 * 60_000 * 2 ** Math.min(Math.max(0, attemptsForTag - 1), 5));
+  if (state.lastFailureAt && now < state.lastFailureAt + delay) return "backoff";
   return "repair";
 }
 

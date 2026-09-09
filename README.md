@@ -89,8 +89,9 @@ change during verification requires another attempt rather than a stale merge.
 
 Install the worker with `bash scripts/install-dispatcher.sh repair`. Its
 dedicated runner clone refreshes on each tick without touching a working
-checkout. Attempts are limited to two per 24 hours and two per upstream tag;
-each agent session has a 30-minute timeout. State, diagnosis, and pending build
+checkout. Failed repairs retry with exponential backoff from 15 minutes to six
+hours, without a hard per-nightly or daily attempt cutoff. Each agent session
+has a 30-minute timeout. State, diagnosis, and pending build
 information survive restarts under
 `~/Library/Application Support/T3CodeNightly/`. The Mac must be awake and Codex
 must remain signed in with usage available. Repaired source is verified and

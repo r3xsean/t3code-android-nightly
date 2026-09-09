@@ -181,6 +181,11 @@ Blocked by: T1, T2, T3.
   native architecture, Expo runtime/channel, and Connect configuration in a
   separate runner. A separate agent reviews the proposal. Only a successful
   verification permits fast-forward promotion and normal signed publication.
+- Sean subsequently clarified that build and independent verification are the
+  required gate, not arbitrary file or attempt limits. Failed repair attempts
+  therefore retry with increasing delay (15 minutes to six hours) rather than
+  permanently stopping after two attempts. Each individual agent invocation
+  remains time-bounded so a hung process can be retried.
 - Repair instructions have three intents: investigate the failed delivery with
   full builder/upstream context; produce a coherent patch anywhere in the
   builder; return a diagnosis when no working patch is possible. This replaces

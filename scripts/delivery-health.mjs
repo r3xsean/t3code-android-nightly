@@ -45,7 +45,7 @@ The Android companion has not caught up with upstream.
 - Build active: ${health.active ? "yes" : "no"}
 - Last completed build: ${health.run?.html_url ?? "none"} (${health.run?.conclusion ?? "unknown"})
 
-The Mac repair worker attempts bounded compatibility repairs and verifies them on GitHub before promotion. Changes outside its permitted scope need maintenance. This incident closes automatically only after successful delivery catches up. Phone-side update checks cannot fetch a build that has not been published.
+The Mac repair worker investigates and repairs delivery failures, then verifies candidates on GitHub before promotion. Failed repairs retry with backoff. This incident closes automatically only after successful delivery catches up. Phone-side update checks cannot fetch a build that has not been published.
 `;
 }
 
