@@ -3,27 +3,12 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 import { GitHubApiError, githubApi } from "./github-api.mjs";
+import { createDraft, uploadAsset, publishDraft } from "./release-retry.mjs";
 import { downstreamTag } from "./nightlies.mjs";
 import { releaseBody } from "./release-body.mjs";
 
 export const EXPECTED_CERTIFICATE_SHA256 =
   "3EAAE08EE4FA2F8A2D2A85FE359840267F6E022B1963C19A60768D96EE40578B";
-
-async function upload(api, uploadUrl, assetPath, contentType) {
-  const bytes = await readFile(assetPath);
-  const name = path.basename(assetPath);
-  await api(
-    `${uploadUrl.replace("{?name,label}", "")}?name=${encodeURIComponent(name)}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": contentType,
-        "Content-Length": String(bytes.byteLength),
-      },
-      body: bytes,
-    },
-  );
-}
 
 async function findPublishedRelease(api, repository, tag) {
   try {
@@ -61,10 +46,12 @@ export async function publishOne(
   repository,
   artifactsDirectory,
   item,
+  retryOptions,
 ) {
   const tag = downstreamTag(item.upstream_tag);
   const existing = await findPublishedRelease(api, repository, tag);
   if (existing) {
+    if (existing.draft !== false) throw new Error(`Release ${tag} is not public`);
     return { status: "already-published", release: existing };
   }
 
@@ -111,46 +98,32 @@ export async function publishOne(
 
   let release;
   try {
-    release = await api(`/repos/${repository}/releases`, {
-      method: "POST",
-      body: JSON.stringify({
-        tag_name: tag,
-        target_commitish: process.env.GITHUB_SHA,
-        name: `T3 Code Android ${item.upstream_tag}`,
-        body: releaseBody(item, metadataValue.certificate_sha256),
-        draft: true,
-        prerelease: false,
-      }),
-    });
+    release = await createDraft(api, repository, {
+      tag_name: tag,
+      target_commitish: process.env.GITHUB_SHA,
+      name: `T3 Code Android ${item.upstream_tag}`,
+      body: releaseBody(item, metadataValue.certificate_sha256),
+      draft: true,
+      prerelease: false,
+    }, retryOptions);
 
-    await upload(
-      api,
-      release.upload_url,
-      path.join(artifactsDirectory, apk),
-      "application/vnd.android.package-archive",
+    await uploadAsset(
+      api, repository, release, apk, apkBytes,
+      "application/vnd.android.package-archive", retryOptions,
     );
-    await upload(
-      api,
-      release.upload_url,
-      path.join(artifactsDirectory, checksum),
-      "text/plain",
+    await uploadAsset(
+      api, repository, release, checksum,
+      await readFile(path.join(artifactsDirectory, checksum)),
+      "text/plain", retryOptions,
     );
-    await upload(
-      api,
-      release.upload_url,
-      path.join(artifactsDirectory, metadata),
-      "application/json",
+    await uploadAsset(
+      api, repository, release, metadata,
+      await readFile(path.join(artifactsDirectory, metadata)),
+      "application/json", retryOptions,
     );
 
-    await api(`/repos/${repository}/releases/${release.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        draft: false,
-        prerelease: false,
-        make_latest: "true",
-      }),
-    });
-    return { status: "published", release };
+    const published = await publishDraft(api, repository, release, retryOptions);
+    return { status: "published", release: published };
   } catch (error) {
     await removeOwnedDraft(api, repository, release?.id);
     throw error;
