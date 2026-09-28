@@ -1,12 +1,51 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, mkdtemp, unlink, rmdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { APPLICATION_ID } from "./companion-contract.mjs";
 
 const exec = promisify(execFile);
+
+export function translatedLibraryPaths(entries, nativeDirectory) {
+  if (!/^\/data\/app\/[A-Za-z0-9_~+/=.-]+\/lib\/arm64$/.test(nativeDirectory) || nativeDirectory.split("/").includes("..")) throw new Error("Unexpected emulator native library directory");
+  const paths = entries.filter((entry) => entry.startsWith("lib/arm64-v8a/"));
+  if (!paths.length || paths.some((entry) => !/^lib\/arm64-v8a\/lib[A-Za-z0-9_+.-]+\.so$/.test(entry))) throw new Error("Unexpected ARM64 APK library entries");
+  return paths;
+}
+
+async function prepareTranslatedEmulator(adb, apk) {
+  const abi = (await adb("shell", "getprop", "ro.product.cpu.abi")).trim();
+  if (abi !== "x86_64") return;
+  // SoLoader's direct-APK path picks the host ABI under NativeBridge. Stage the
+  // exact APK libraries in Android's existing application-library search path.
+  // This changes only the disposable emulator filesystem, never the APK.
+  const info = await adb("shell", "dumpsys", "package", APPLICATION_ID);
+  const nativeDirectory = info.match(/nativeLibraryDir=(\S+)/)?.[1] ?? "";
+  const { stdout } = await exec("unzip", ["-Z1", path.resolve(apk)]);
+  const entries = translatedLibraryPaths(stdout.trim().split(/\r?\n/), nativeDirectory);
+  await adb("root");
+  await adb("wait-for-device");
+  if ((await adb("shell", "id", "-u")).trim() !== "0") throw new Error("Translated emulator requires an isolated root-capable Google APIs image");
+  await adb("shell", "mkdir", "-p", nativeDirectory);
+  const libraryDirectory = await mkdtemp(path.join(tmpdir(), "t3-smoke-libs-"));
+  const local = path.join(libraryDirectory, "library.so");
+  try {
+    for (const entry of entries) {
+      const { stdout: bytes } = await exec("unzip", ["-p", path.resolve(apk), entry], { encoding: "buffer", maxBuffer: 128 * 1024 * 1024 });
+      await writeFile(local, bytes);
+      await adb("push", local, `${nativeDirectory}/${path.basename(entry)}`);
+    }
+  } finally {
+    await unlink(local).catch((error) => { if (error.code !== "ENOENT") throw error; });
+    await rmdir(libraryDirectory);
+  }
+  await adb("shell", "chmod", "755", nativeDirectory);
+  await adb("shell", "restorecon", "-RF", nativeDirectory);
+  console.log(`Staged ${entries.length} unchanged ARM64 libraries for the translated emulator; APK unchanged`);
+}
 
 export function assessLaunch({ pkg, pid, foreground, ui, crash }) {
   if (crash.includes(`Process: ${pkg},`) || crash.includes(`>>> ${pkg} <<<`)) throw new Error("Android app crashed; see crash-log.txt");
@@ -26,6 +65,7 @@ async function main() {
   try {
     if ((await adb("shell", "getprop", "sys.boot_completed")).trim() !== "1") throw new Error("Emulator is not booted");
     await adb("install", "-r", path.resolve(apk));
+    await prepareTranslatedEmulator(adb, apk);
     // Test the embedded artifact, not a downloaded OTA that could hide a bad APK.
     await adb("shell", "svc", "wifi", "disable");
     await adb("shell", "svc", "data", "disable");

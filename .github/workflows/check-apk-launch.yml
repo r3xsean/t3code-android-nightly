@@ -1,0 +1,63 @@
+name: Check existing APK launch
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Existing build run in this repository containing the unsigned APK
+        type: string
+        required: true
+      artifact_name:
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: ${{ inputs.artifact_name }}
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Stage one candidate and the known broken release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apks=(candidate/*.apk)
+          test "${#apks[@]}" -eq 1
+          cp "${apks[0]}" candidate.apk
+          gh release download 0.0.43-nightly.20260926.2318 --repo r3xsean/t3code-android-nightly --pattern '*.apk' --dir broken
+          echo '9fdde4748349d7d0d92382a54f0d4f506064994b3f4ecbe0a6aa733a3d5af2a5  broken/t3code-nightly-0.0.43-nightly.20260926.2318.apk' | sha256sum -c -
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Prove old APK fails and replacement launches
+        uses: reactivecircus/android-emulator-runner@4c44018e59b437e86cdfc41da381398f93ed8808
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: bash scripts/check-launch-regression.sh
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: launch-regression-evidence
+          path: |
+            broken-evidence/*.txt
+            broken-evidence/*.xml
+            fixed-evidence/*.txt
+            fixed-evidence/*.xml
+            fixed-evidence/*.png
+          retention-days: 7
