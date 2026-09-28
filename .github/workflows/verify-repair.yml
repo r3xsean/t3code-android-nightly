@@ -114,7 +114,7 @@ jobs:
     name: Verify candidate artifact
     needs: [resolve, build]
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - name: Check out independent verifier only
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -146,3 +146,21 @@ jobs:
           "$ANDROID_HOME/build-tools/37.0.0/aapt2" dump badging artifact/app.apk > artifact/badging.txt
           node scripts/verify-repair-artifact.mjs artifact
           sha256sum artifact/app.apk
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Independently cold-launch candidate APK
+        uses: reactivecircus/android-emulator-runner@4c44018e59b437e86cdfc41da381398f93ed8808
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: node scripts/smoke-android.mjs artifact/app.apk launch-evidence
+      - name: Preserve launch evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: repair-launch-evidence
+          path: launch-evidence
+          retention-days: 7

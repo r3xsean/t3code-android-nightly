@@ -15,10 +15,12 @@ node "$builder_dir/scripts/align-react.mjs" "$source_dir" --check
 cd "$source_dir/apps/mobile"
 vp run typecheck
 vp exec fingerprint fingerprint:generate --platform android > "$output_dir/fingerprint.json"
+node "$builder_dir/scripts/native-compat.mjs" fingerprint "$source_dir" "$output_dir/fingerprint.json"
 native_fingerprint="$(node --input-type=module -e 'import {readFileSync} from "node:fs"; console.log(JSON.parse(readFileSync(process.argv[1], "utf8")).hash)' "$output_dir/fingerprint.json")"
 node "$builder_dir/scripts/prepare-source.mjs" finalize "$source_dir" "$VERSION_CODE" "$VERSION_NAME" "$native_fingerprint"
 vp exec expo config --type public --json > "$output_dir/expo-config.json"
 vp exec expo prebuild --clean --platform android
+node "$builder_dir/scripts/native-compat.mjs" verify-gradle "$source_dir"
 cd android
 ./gradlew assembleRelease --no-daemon --stacktrace
 cp app/build/outputs/apk/release/app-release.apk "$output_dir/app.apk"

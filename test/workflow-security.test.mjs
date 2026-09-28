@@ -80,3 +80,17 @@ test("only the Mac dispatcher starts builds, so GitHub does no idle polling", as
   assert.doesNotMatch(workflow, /^\s*schedule:/m);
   await assert.rejects(access(".github/workflows/keepalive.yml"), /ENOENT/);
 });
+
+test("native signing is blocked on an exact-artifact launch check without publishing credentials", async () => {
+  const workflow = await readFile(".github/workflows/android-nightly.yml", "utf8");
+  const smoke = job(workflow, "smoke-apk", "publish-ota");
+  const sign = job(workflow, "sign", "publish-apk");
+  assert.match(sign, /needs:[\s\S]*?- smoke-apk/);
+  assert.doesNotMatch(smoke, /secrets\.|contents:\s*write|EXPO_TOKEN/);
+  assert.match(smoke, /unsigned-.*\.apk launch-evidence/);
+  assert.match(smoke, /scripts\/smoke-android\.mjs/);
+  assert.doesNotMatch(smoke, /continue-on-error/);
+  const repair = await readFile(".github/workflows/verify-repair.yml", "utf8");
+  assert.match(repair, /Independently cold-launch candidate APK/);
+  assert.match(repair, /node scripts\/smoke-android\.mjs artifact\/app\.apk/);
+});
