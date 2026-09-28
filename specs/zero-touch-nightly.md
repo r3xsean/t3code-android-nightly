@@ -42,7 +42,9 @@ release tag to an immutable commit SHA and builds that SHA.
 - Display name: `T3 Code Nightly`
 - Expo project: a project owned by Sean and dedicated to this companion
 - Expo channel: `nightly`
-- Expo runtime version: an explicit Android native-compatibility fingerprint
+- Expo runtime version: an explicit Android native-compatibility fingerprint,
+  derived from Expo's source fingerprint and the enforced React Native fbjni
+  compatibility contract
 - APK version name: exact upstream tag without its leading `v`
 - Version code: upstream publication timestamp as Unix seconds
 - GitHub release tag: exactly the Android version name, so Obtainium's latest
@@ -53,7 +55,8 @@ release tag to an immutable commit SHA and builds that SHA.
 ## Publication
 
 The untrusted source job checks out and builds the exact upstream commit without
-credentials. It computes the Android native fingerprint before assigning the
+credentials. It computes the Expo source fingerprint, derives the Android
+runtime fingerprint with the fbjni compatibility contract, then assigns the
 explicit runtime version. Fingerprinting always uses one neutral version name
 and code, so delivery-version changes cannot masquerade as native changes.
 
@@ -213,8 +216,8 @@ Blocked by: T1, T2, T3.
   one visible incident, and resolve it only after delivery catches up. It must
   run independently of the Mac dispatcher so an offline Mac is detectable.
 
-- Native delivery selection is a mechanical seam: compare the generated Android
-  fingerprint to the latest published OTA-enabled native base. Generate every
+- Native delivery selection is a mechanical seam: compare the derived Android
+  runtime fingerprint to the latest published OTA-enabled native base. Generate every
   fingerprint from the same neutral version name and code.
 - Upstream source adaptation is a mechanical, fail-closed seam: every expected
   insertion point must occur exactly once.

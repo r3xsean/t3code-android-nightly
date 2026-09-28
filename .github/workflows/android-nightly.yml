@@ -212,13 +212,17 @@ jobs:
           EXPO_NO_GIT_STATUS: "1"
         run: vp exec expo prebuild --clean --platform android
 
+      - name: Test native dependency probe against a composite Gradle build
+        if: steps.plan.outputs.delivery == 'apk'
+        working-directory: source/apps/mobile/android
+        run: bash "$GITHUB_WORKSPACE/builder/scripts/test-gradle-probe.sh" ./gradlew
+
       - name: Compile release APK
         if: steps.plan.outputs.delivery == 'apk'
         working-directory: source/apps/mobile/android
         env:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
         run: |
-          bash "$GITHUB_WORKSPACE/builder/scripts/test-gradle-probe.sh" ./gradlew
           node "$GITHUB_WORKSPACE/builder/scripts/native-compat.mjs" verify-gradle "$GITHUB_WORKSPACE/source"
           ./gradlew assembleRelease --no-daemon --stacktrace
 

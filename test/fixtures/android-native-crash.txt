@@ -1,0 +1,4 @@
+--------- beginning of crash
+E/AndroidRuntime( 3663): FATAL EXCEPTION: main
+E/AndroidRuntime( 3663): Process: dev.r3xsean.t3code.nightly, PID: 3663
+E/AndroidRuntime( 3663): com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libfbjni.so
