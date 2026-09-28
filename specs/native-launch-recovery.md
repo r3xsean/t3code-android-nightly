@@ -28,7 +28,7 @@ Blast radius: high (public APK delivery).
 
 - T1: Complete — conditional resolved-native-dependency guard and runtime isolation.
 - T2: Complete — exact-artifact launch gate for native publication and repair verification.
-- T3: Live negative/positive verification and signed recovery publication.
+- T3: Complete — live negative/positive verification and signed recovery publication.
 
 ## Implementation Notes
 
@@ -55,3 +55,18 @@ Blast radius: high (public APK delivery).
   passes the same repaired artifact twice on the translated cloud emulator.
   A real Gradle/Maven fixture proves both the conditional mismatch repair and
   byte-for-byte no-op on subsequent/already-correct resolution.
+- Final production run [36471110757](https://github.com/r3xsean/t3code-android-nightly/actions/runs/36471110757)
+  succeeded from builder af3d849e88fd667c52ff4df09e282d5695b054c0.
+  New upstream .2402 arrived during verification, so the final recovery uses
+  immutable source ed57bed8e71b2e89a9350c94bda0dacc71cd4817 instead of .2375.
+  The actual graph again required the conditional fbjni 0.8.1 -> 0.7.0 repair.
+  Cloud cold launches passed before signing and publication.
+- Published [0.0.43-nightly.20260928.2402](https://github.com/r3xsean/t3code-android-nightly/releases/tag/0.0.43-nightly.20260928.2402),
+  version code 1790621313, runtime d20ca524fc3e78262adb039f8f78b615f4ec40d9.
+  Public APK SHA-256:
+  `01bd3caa4ce19bd6213cdc09b5930d00ce41f659dce08ddcad1675200c2e9509`.
+  Downloaded checksum, package/version, and persistent signing certificate
+  all verified. The signed public APK installed in-place over original signed
+  .2318 on the native ARM64 emulator, preserved a sandbox test-data marker,
+  and passed two offline cold launches with an empty crash log. No actual
+  phone/account connection was tested or user phone data accessed.
