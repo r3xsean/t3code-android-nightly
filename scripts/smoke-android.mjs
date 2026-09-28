@@ -9,6 +9,12 @@ import { APPLICATION_ID } from "./companion-contract.mjs";
 
 const exec = promisify(execFile);
 
+export function installedArm64LibraryDirectory(info) {
+  if (!/^\s*primaryCpuAbi=arm64-v8a\s*$/m.test(info)) throw new Error("Installed app is not ARM64");
+  return info.match(/^\s*nativeLibraryDir=(\S+)\s*$/m)?.[1]
+    ?? `${info.match(/^\s*legacyNativeLibraryDir=(\S+)\s*$/m)?.[1] ?? ""}/arm64`;
+}
+
 export function translatedLibraryPaths(entries, nativeDirectory) {
   if (!/^\/data\/app\/[A-Za-z0-9_~+/=.-]+\/lib\/arm64$/.test(nativeDirectory) || nativeDirectory.split("/").includes("..")) throw new Error("Unexpected emulator native library directory");
   const paths = entries.filter((entry) => entry.startsWith("lib/arm64-v8a/"));
@@ -23,7 +29,7 @@ async function prepareTranslatedEmulator(adb, apk) {
   // exact APK libraries in Android's existing application-library search path.
   // This changes only the disposable emulator filesystem, never the APK.
   const info = await adb("shell", "dumpsys", "package", APPLICATION_ID);
-  const nativeDirectory = info.match(/nativeLibraryDir=(\S+)/)?.[1] ?? "";
+  const nativeDirectory = installedArm64LibraryDirectory(info);
   const { stdout } = await exec("unzip", ["-Z1", path.resolve(apk)]);
   const entries = translatedLibraryPaths(stdout.trim().split(/\r?\n/), nativeDirectory);
   await adb("root");

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { assessLaunch, translatedLibraryPaths } from "../scripts/smoke-android.mjs";
+import { assessLaunch, translatedLibraryPaths, installedArm64LibraryDirectory } from "../scripts/smoke-android.mjs";
 
 const pkg = "dev.r3xsean.t3code.nightly";
 const ui = `<hierarchy><node package="${pkg}" text="Add environment" /></hierarchy>`;
@@ -17,6 +17,9 @@ test("installation or a splash screen alone cannot pass Android launch verificat
 
 test("translated emulator staging accepts only APK library basenames and the installed app library directory", () => {
   const directory = "/data/app/~~abc/dev.r3xsean.t3code.nightly-abc==/lib/arm64";
+  assert.equal(installedArm64LibraryDirectory(`    legacyNativeLibraryDir=${directory.slice(0, -6)}\n    primaryCpuAbi=arm64-v8a\n`), directory);
+  assert.equal(installedArm64LibraryDirectory(`    nativeLibraryDir=${directory}\n    primaryCpuAbi=arm64-v8a\n`), directory);
+  assert.throws(() => installedArm64LibraryDirectory(`primaryCpuAbi=x86_64\nnativeLibraryDir=${directory}`), /not ARM64/);
   assert.deepEqual(translatedLibraryPaths(["assets/app.bundle", "lib/arm64-v8a/libfbjni.so"], directory), ["lib/arm64-v8a/libfbjni.so"]);
   for (const invalid of ["/data/local/tmp", "/data/app/../lib/arm64", "/data/app/x;touch-x/lib/arm64", ""]) assert.throws(() => translatedLibraryPaths(["lib/arm64-v8a/libfbjni.so"], invalid));
   for (const entries of [[], ["lib/arm64-v8a/../../bad.so"], ["lib/arm64-v8a/lib$(bad).so"]]) assert.throws(() => translatedLibraryPaths(entries, directory));
