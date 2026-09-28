@@ -70,6 +70,14 @@ screenshots remain as Actions artifacts for seven days. A launch failure blocks
 publication and processed-state advancement, just like a compilation failure.
 This smoke test catches startup crashes; it does not certify every feature or
 replace testing an upgrade with real phone data.
+On GitHub's x86 emulator, Android's ARM translation makes SoLoader choose the
+wrong direct-APK ABI path. The harness stages the APK's unchanged ARM64 library
+bytes in its installed app-library directory in the disposable emulator. It
+does not modify the APK. This exercises native startup, not every phone's
+installer behavior; recovery releases are also checked on native ARM64 locally.
+The manual `Check existing APK launch` workflow verifies the known broken
+.2318 fails and a selected own-repository build artifact passes, without
+signing, publishing, or changing delivery state.
 
 Expo OTA updates are a second delivery trust root: they are authorized by the
 dedicated Expo account token and delivered over TLS, rather than authenticated

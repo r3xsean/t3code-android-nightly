@@ -26,8 +26,8 @@ Blast radius: high (public APK delivery).
 
 ## Tickets
 
-- T1: Conditional resolved-native-dependency guard and runtime isolation.
-- T2: Exact-artifact launch gate for native publication and repair verification.
+- T1: Complete — conditional resolved-native-dependency guard and runtime isolation.
+- T2: Complete — exact-artifact launch gate for native publication and repair verification.
 - T3: Live negative/positive verification and signed recovery publication.
 
 ## Implementation Notes
@@ -41,3 +41,17 @@ Blast radius: high (public APK delivery).
   existing connection still works. This is not claimed by automated tests.
 - The user explicitly authorized publication. No additional merge/debrief
   approval gate is required for this recovery.
+- Cloud execution revealed a SoLoader/NativeBridge limitation: an ARM64-only
+  APK is searched under lib/x86_64. The cloud harness therefore stages unchanged
+  APK library bytes into the emulator's installed app-library directory, with
+  emulator-only/root/path guards. This is a test-environment adaptation, not an
+  APK patch. It is validated against both the broken original and replacement.
+  Cloud packaging fidelity is consequently limited; local native ARM64 launch
+  validation uses the unmodified installation path. This limitation is explicit.
+- Verification: 115 unit tests and the real Gradle composite fixture pass.
+  Build run 36466265256 compiled .2375 after verifying fbjni 0.8.1 -> 0.7.0.
+  Its artifact passes both native ARM64 cold launches locally. Diagnostic run
+  36470273097 independently rejects the checksum-pinned broken .2318 APK and
+  passes the same repaired artifact twice on the translated cloud emulator.
+  A real Gradle/Maven fixture proves both the conditional mismatch repair and
+  byte-for-byte no-op on subsequent/already-correct resolution.
