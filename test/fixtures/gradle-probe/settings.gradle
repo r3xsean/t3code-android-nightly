@@ -1,0 +1,3 @@
+rootProject.name = 'native-probe-fixture'
+include ':app', ':fbjni'
+includeBuild 'plugin-build'

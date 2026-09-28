@@ -57,6 +57,20 @@ untouched. After a successful delivery, the workflow deletes its temporary
 Actions artifacts. APKs, checksums, and provenance attached to GitHub Releases
 remain available to Obtainium.
 
+Native builds also check the actual Gradle release dependency graph against
+React Native's own fbjni version catalog. An override is added to the generated
+project only when those versions differ. When upstream already resolves the
+correct version, the check makes no changes. The required native contract is
+part of the Expo runtime fingerprint, keeping repaired APKs separate from an
+older incompatible native base.
+
+Before signing/publication, the actual ARM64 build must render app UI and stay
+alive through two offline cold launches in an Android emulator. Launch logs and
+screenshots remain as Actions artifacts for seven days. A launch failure blocks
+publication and processed-state advancement, just like a compilation failure.
+This smoke test catches startup crashes; it does not certify every feature or
+replace testing an upgrade with real phone data.
+
 Expo OTA updates are a second delivery trust root: they are authorized by the
 dedicated Expo account token and delivered over TLS, rather than authenticated
 by the APK signing certificate. The credential-bearing publisher installs the
@@ -82,7 +96,7 @@ no compatibility-file allowlist. A second Astra session reviews the proposal.
 GitHub then runs `Verify Android repair` from the pre-repair main commit, tests
 the candidate against the original regression suite plus new tests, compiles
 an APK, and verifies its package/version, architecture, Expo configuration, and
-T3 Connect configuration in a fresh job. Candidate workflow changes cannot
+T3 Connect configuration and two emulator cold launches in a fresh job. Candidate workflow changes cannot
 alter that verification run. Only that exact verified commit can fast-forward
 main, after which normal signed publication is dispatched. A main-branch
 change during verification requires another attempt rather than a stale merge.

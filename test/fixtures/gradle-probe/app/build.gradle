@@ -1,0 +1,7 @@
+configurations.create('releaseRuntimeClasspath')
+dependencies.add('releaseRuntimeClasspath', project(':fbjni'))
+tasks.configureEach {
+    if (name == 't3CompanionResolvedFbjni') {
+        dependsOn gradle.includedBuild('plugin-build').task(':help')
+    }
+}

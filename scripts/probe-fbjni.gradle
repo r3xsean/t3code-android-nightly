@@ -1,7 +1,10 @@
 // Read the actual release runtime graph, including upstream constraints/plugins.
 gradle.projectsEvaluated {
     def app = gradle.rootProject.findProject(':app')
-    if (app == null) throw new GradleException('Android app project is missing')
+    // Init scripts also run in included plugin builds (React Native/Expo).
+    // Those have no :app. The requested :app task still fails closed if the
+    // actual root build has no Android app project.
+    if (app == null) return
     app.tasks.register('t3CompanionResolvedFbjni') {
         doLast {
             def runtime = app.configurations.getByName('releaseRuntimeClasspath')
@@ -10,7 +13,7 @@ gradle.projectsEvaluated {
             def versions = runtime.incoming.resolutionResult.allComponents.collect { it.moduleVersion }
                 .findAll { it != null && it.group == 'com.facebook.fbjni' && it.name == 'fbjni' }
                 .collect { it.version }.unique().sort()
-            println('T3_FBJNi=' + groovy.json.JsonOutput.toJson(versions))
+            println('T3_FBJNI=' + groovy.json.JsonOutput.toJson(versions))
         }
     }
 }

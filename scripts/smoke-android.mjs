@@ -4,13 +4,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { APPLICATION_ID } from "./companion-contract.mjs";
 
 const exec = promisify(execFile);
-const pkg = "dev.r3xsean.t3code.nightly";
 
 export function assessLaunch({ pkg, pid, foreground, ui, crash }) {
   if (crash.includes(`Process: ${pkg},`) || crash.includes(`>>> ${pkg} <<<`)) throw new Error("Android app crashed; see crash-log.txt");
   if (!/^\d+$/.test(pid.trim())) throw new Error("Android app process exited or was not uniquely running");
+  if (/This screen couldn(?:'|&apos;)t be displayed|copy the details for a bug report/i.test(ui)) throw new Error("Android app displayed its render-error boundary");
   return foreground.includes(`${pkg}/`) && [...ui.matchAll(/<node\b[^>]*>/g)].some(([node]) =>
     node.includes(`package="${pkg}"`) && /(?:text|content-desc)="[^"\s][^"]*"/.test(node));
 }
@@ -19,6 +20,7 @@ async function main() {
   const [apk, output, serial = "emulator-5554"] = process.argv.slice(2);
   if (!apk || !output || !/^emulator-\d+$/.test(serial)) throw new Error("Usage: smoke-android.mjs <apk> <evidence-dir> [emulator-serial]; physical devices are not allowed");
   await mkdir(output, { recursive: true });
+  const pkg = APPLICATION_ID;
   const adb = async (...args) => (await exec("adb", ["-s", serial, ...args], { timeout: 120_000, maxBuffer: 16 * 1024 * 1024 })).stdout;
   const optional = async (...args) => { try { return await adb(...args); } catch { return ""; } };
   try {

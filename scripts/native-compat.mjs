@@ -5,6 +5,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { FINGERPRINT_PATTERN } from "./companion-contract.mjs";
 
 const exec = promisify(execFile);
 const versionPattern = /^\d+\.\d+\.\d+$/;
@@ -24,7 +25,7 @@ export function compatibilityDecision(expected, resolved) {
 }
 
 export function compatibilityFingerprint(hash, expected) {
-  if (!/^[a-f0-9]{40}$/.test(hash) || !versionPattern.test(expected)) throw new Error("Invalid native compatibility fingerprint input");
+  if (!FINGERPRINT_PATTERN.test(hash) || !versionPattern.test(expected)) throw new Error("Invalid native compatibility fingerprint input");
   return createHash("sha1").update(`t3-fbjni-contract-v1\n${hash}\n${expected}\n`).digest("hex");
 }
 
@@ -43,9 +44,9 @@ async function requiredVersion(sourceRoot) {
 async function resolvedVersions(android) {
   const { stdout } = await exec("./gradlew", ["--init-script", fileURLToPath(new URL("./probe-fbjni.gradle", import.meta.url)),
     ":app:t3CompanionResolvedFbjni", "--quiet", "--no-daemon"], { cwd: android, timeout: 600_000, maxBuffer: 8 * 1024 * 1024 });
-  const lines = stdout.split(/\r?\n/).filter((line) => line.startsWith("T3_FBJNi="));
+  const lines = stdout.split(/\r?\n/).filter((line) => line.startsWith("T3_FBJNI="));
   if (lines.length !== 1) throw new Error(`Gradle did not report a unique fbjni resolution: ${stdout.slice(-4000)}`);
-  return JSON.parse(lines[0].slice("T3_FBJNi=".length));
+  return JSON.parse(lines[0].slice("T3_FBJNI=".length));
 }
 
 async function main() {

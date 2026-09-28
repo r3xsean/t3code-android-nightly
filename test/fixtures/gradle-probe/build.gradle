@@ -1,0 +1,4 @@
+allprojects {
+    group = 'com.facebook.fbjni'
+    version = '0.7.0'
+}

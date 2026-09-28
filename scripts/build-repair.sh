@@ -20,6 +20,7 @@ native_fingerprint="$(node --input-type=module -e 'import {readFileSync} from "n
 node "$builder_dir/scripts/prepare-source.mjs" finalize "$source_dir" "$VERSION_CODE" "$VERSION_NAME" "$native_fingerprint"
 vp exec expo config --type public --json > "$output_dir/expo-config.json"
 vp exec expo prebuild --clean --platform android
+bash "$builder_dir/scripts/test-gradle-probe.sh" "$source_dir/apps/mobile/android/gradlew"
 node "$builder_dir/scripts/native-compat.mjs" verify-gradle "$source_dir"
 cd android
 ./gradlew assembleRelease --no-daemon --stacktrace

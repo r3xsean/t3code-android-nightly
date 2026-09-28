@@ -173,6 +173,13 @@ Blocked by: T1, T2, T3.
 
 ## Implementation Notes
 
+- September 29 launch recovery: native delivery and independent repair checks
+  now require two offline emulator cold launches of the actual ARM64 build,
+  non-splash foreground UI, and no fatal crash. See native-launch-recovery.md.
+  The resolved fbjni graph is reconciled with installed React Native only when
+  mismatched; an upstream-fixed graph incurs no source override. This native
+  compatibility contract participates in runtime fingerprinting.
+
 - September 9 automatic-repair authorization: Sean explicitly chose automatic
   publication of verified repairs, then removed the proposed file allowlist.
   GPT-6 Astra at high effort may propose changes throughout the builder.
