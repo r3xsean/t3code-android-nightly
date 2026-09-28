@@ -1,1 +1,2 @@
 // Dependency graph fixture: no compilation or remote dependency needed.
+configurations.create('default')
