@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   APPLICATION_ID,
@@ -69,8 +70,13 @@ export function prepareConfig(
   );
   prepared = replacePatternExactlyOnce(
     prepared,
-    /^  version: "[^"\r\n]+",\r?$/gm,
-    `  version: "${versionName}",`,
+    /^  version:[^\r\n]*\r?$/gm,
+    (declaration) => {
+      if (!/^  version: (?:repoEnv\.T3CODE_MOBILE_VERSION \?\? )?"[^"\r\n]+",\r?$/.test(declaration)) {
+        throw new Error("Unrecognized application version declaration; upstream config changed");
+      }
+      return `  version: "${versionName}",`;
+    },
     "application version",
   );
   prepared = replacePatternExactlyOnce(
@@ -175,7 +181,7 @@ async function main() {
   await writeFile(configPath, prepared);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
