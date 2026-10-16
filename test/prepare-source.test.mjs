@@ -107,6 +107,50 @@ test("accepts routine upstream version-literal changes", () => {
   assert.match(prepared, /version: "0\.0\.29-nightly\.20260727\.922"/);
 });
 
+test("normalizes the environment-backed upstream version before fingerprinting and finalization", () => {
+  const upstream = fixture.replace(
+    '  version: "0.1.0",',
+    '  version: repoEnv.T3CODE_MOBILE_VERSION ?? "2.0.0",',
+  );
+  const prepared = prepareFingerprintConfig(upstream, companion);
+  assert.match(prepared, /version: "0\.0\.0-nightly\.19700101\.1"/);
+  assert.match(prepared, /versionCode: 1,/);
+  assert.doesNotMatch(prepared, /T3CODE_MOBILE_VERSION/);
+  assert.equal(
+    prepared,
+    prepareFingerprintConfig(
+      upstream.replace('?? "2.0.0"', '?? "2.1.0"'),
+      companion,
+    ),
+  );
+  const finalized = finalizeConfig(prepared, {
+    runtimeVersion: "5729c1d569caaa4b1958001a7fe694dd48928446",
+    versionCode: 1792126527,
+    versionName: "0.1.1-nightly.20261016.3190",
+  });
+  assert.match(finalized, /version: "0\.1\.1-nightly\.20261016\.3190"/);
+  assert.match(finalized, /versionCode: 1792126527,/);
+  assert.match(finalized, /runtimeVersion: "5729c1d569caaa4b1958001a7fe694dd48928446"/);
+  assert.doesNotMatch(finalized, /T3CODE_MOBILE_VERSION/);
+});
+
+test("rejects unknown version expressions and duplicate supported version fields", () => {
+  for (const replacement of [
+    '  version: repoEnv.OTHER_VERSION ?? "2.0.0",',
+    '  version: repoEnv.T3CODE_MOBILE_VERSION || "2.0.0",',
+    '  version: getVersion(),',
+    '  version: "0.1.0",\n  version: repoEnv.T3CODE_MOBILE_VERSION ?? "2.0.0",',
+  ]) {
+    assert.throws(
+      () => prepareFingerprintConfig(
+        fixture.replace('  version: "0.1.0",', replacement),
+        companion,
+      ),
+      /Expected exactly one application version insertion point/,
+    );
+  }
+});
+
 test("rejects malformed Expo publication identity", () => {
   assert.throws(
     () => prepareConfig(fixture, { ...companion, expoProjectId: "not-a-uuid" }),

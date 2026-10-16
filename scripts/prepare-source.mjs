@@ -69,7 +69,7 @@ export function prepareConfig(
   );
   prepared = replacePatternExactlyOnce(
     prepared,
-    /^  version: "[^"\r\n]+",\r?$/gm,
+    /^  version: (?:repoEnv\.T3CODE_MOBILE_VERSION \?\? )?"[^"\r\n]+",\r?$/gm,
     `  version: "${versionName}",`,
     "application version",
   );
