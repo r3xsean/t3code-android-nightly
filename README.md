@@ -1,4 +1,19 @@
-# T3 Code Android Nightly Companion
+# T3 Code Android Nightly Companion — retired
+
+> **Retired on October 21, 2026.** Sean has switched to the official Android
+> app and confirmed it works. This companion no longer receives APK or OTA
+> updates. Use the Android APK attached to an official
+> [T3 Code Nightly release](https://github.com/pingdotgg/t3code/releases), or
+> the [official Google Play app](https://play.google.com/store/apps/details?id=com.t3tools.t3code).
+>
+> The Mac dispatcher and automatic repair LaunchAgents have been disabled and
+> unloaded, with their installed plists moved out of `~/Library/LaunchAgents`.
+> All four GitHub workflows and repository Actions have been disabled. The
+> repository is archived. Existing releases, source history, Expo updates, and
+> the encrypted signing recovery backup are retained for reference and recovery.
+>
+> The documentation below describes the former system. Do not reinstall its
+> automation or use the old companion for new installations.
 
 An unofficial, side-by-side Android build of
 [T3 Code](https://github.com/pingdotgg/t3code), tracking the newest official
@@ -18,31 +33,27 @@ The companion:
 - is published with its source commit, certificate fingerprint, metadata, and
   SHA-256 checksum.
 
-## Install and update
+## Moving to the official app
 
-This build targets 64-bit ARM Android phones (`arm64-v8a`).
+The official app uses `com.t3tools.t3code`; the retired companion uses
+`dev.r3xsean.t3code.nightly`. They can coexist, but the official app does not
+replace the companion in place or inherit its app-local settings. Sign in and
+connect to the same host in the official app before removing the companion.
 
-1. Install [Obtainium](https://obtainium.imranr.dev/).
-2. On the Android phone, tap
-   **[add T3 Code Nightly to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https%3A%2F%2Fgithub.com%2Fr3xsean%2Ft3code-android-nightly)**.
-3. Confirm the detected GitHub source, then tap **Add** and **Install**.
-4. Allow Obtainium to install unknown apps when Android prompts.
+For Obtainium, add `https://github.com/pingdotgg/t3code` as a new entry, include
+prereleases, filter release titles with `^T3 Code Nightly `, and filter APK links
+with `^t3code-android-internal-.*\.apk$`. Disable reconciliation with the OS
+version string: the mobile app version differs from the desktop release tag.
+After confirming the official app works, remove the old companion's Obtainium
+entry and uninstall **T3 Code Nightly** (`dev.r3xsean.t3code.nightly`).
 
-After the OTA-enabled bootstrap APK, T3's in-app launch check downloads and
-reloads compatible Expo updates. Expo's additional native launch downloader is
-disabled to prevent two Android downloads racing each other. The check contacts
-Expo with the companion project, runtime, channel, and installation identifiers.
-When a
-nightly changes native Android code or dependencies, the automation publishes a
-new signed APK instead; Obtainium then provides the Android update prompt.
-Companion APKs are normal GitHub releases, so prerelease inclusion is not
-required. Each release tag exactly matches the APK version reported by Android,
-preventing false update prompts. Pair this companion separately from the
-official app.
+The companion's published APK was missing the Firebase configuration required
+for Android push registration. Its startup smoke tests did not verify push.
+The official APK includes that configuration; notifications also require T3
+Connect sign-in, a linked host with activity publishing enabled, and device
+notification permission.
 
-If the one-tap link does not open Obtainium, paste
-`https://github.com/r3xsean/t3code-android-nightly` into Obtainium's **Add App**
-screen.
+## Historical implementation
 
 ## Security boundary
 
